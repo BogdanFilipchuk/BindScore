@@ -1,5 +1,6 @@
 import urllib.request
 from pathlib import Path
+import numpy as np
 
 
 def fetch_pdb(pdb_id):
@@ -221,7 +222,26 @@ class Protein_Structure:
         # Can be extended
 
         return summary_dict
-        
+    
+def possible_interaction_sites(chain1, chain2, threshold=5.0):
+    '''
+    Identifies interaction sites between the specified chains and/or small molecules based on only on spatial proximity.
+    Args:
+        chain1 (list): A list containing the atoms for the first chain or small molecule.
+        chain2 (list): A list containing the atoms for the second chain or small molecule.
+        threshold (float): The distance threshold for identifying interactions (default is 5.0 Å).
+    '''
+
+    print("Identifying possible interaction sites based on spatial proximity...")
+
+    possible_sites = []
+    for atom1 in chain1:
+        for atom2 in chain2:
+            distance = np.linalg.norm(np.array([atom1['x'], atom1['y'], atom1['z']]) - np.array([atom2['x'], atom2['y'], atom2['z']]))
+            if distance <= threshold:
+                possible_sites.append((atom1, atom2, distance))
+
+    return possible_sites
 
 def example_usage():
     '''
@@ -231,5 +251,6 @@ def example_usage():
     fetch_pdb('1A2B')
     protein = Protein_Structure('1A2B.pdb')
     print(protein.summary())
+    print(possible_interaction_sites(protein.get_chain('A'), protein.get_small_molecule('HOH'))[1:5]) # Print a few possible interaction sites between chain A and water molecules
 
 example_usage()
