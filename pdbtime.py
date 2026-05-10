@@ -207,6 +207,8 @@ class Protein_Structure:
             dict: A dictionary containing the summary.
         '''
 
+        print("Generating summary of the protein structure...")
+
         summary_dict = {
         'pdb_file'          : self.pdb_file,
         'num_atoms_total'   : len(self.all_atoms),
