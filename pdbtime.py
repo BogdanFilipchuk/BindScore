@@ -155,6 +155,9 @@ class Protein_Structure:
             list: A list of dictionaries containing the atoms for the specified chain.
         '''
 
+        if chain_id not in self.chains():
+            raise ValueError("Chain not found in the PDB data.")
+
         residue_atoms = []
         for atom in self.all_atoms:
             if atom['type'] == 'ATOM' and atom['chain'] == chain_id:
@@ -180,12 +183,15 @@ class Protein_Structure:
         '''
         Extracts the atoms for a specific small molecule from the parsed PDB data.
         Args:
-            small_molecule_id (str): The ID of the chain to extract atoms from.
+            small_molecule_id (str): The ID of the small molecule to extract atoms from.
         Returns:
             list: A list of dictionaries containing the atoms for the specified small molecule.
         '''
 
         #The water molecules are grouped together, not separate. So if the small_molecule_id is 'HOH', it will return all the water molecules.
+
+        if small_molecule_id not in self.small_molecules():
+            raise ValueError("Small molecule not found in the PDB data.")
 
         residue_atoms = []
         for atom in self.all_atoms:
