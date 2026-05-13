@@ -10,7 +10,15 @@ dependencies = [
     "requests",
     "biopython",
     "numpy",
-    "freesasa"
+    "freesasa",
+    "streamlit", 
+    "matplotlib",
+    "streamlit_ketcher", 
+    "stmol", 
+    "py3Dmol", 
+    "mols2grid", 
+    "scipy", 
+    "plotly"
 ]
 
 [tool.hatch.build.targets.wheel]
