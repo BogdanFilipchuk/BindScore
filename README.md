@@ -10,7 +10,7 @@ This is a preliminary version of the README file, partially concieved with AI. I
 | [Bogdan Filipchuk] | [bogdan.filipchuk@epfl.ch] | [EPFL] |
 | [Tuna Karasu] | [tuna.karasu@epfl.ch] | [EPFL] |
 | [Andrey Babenko] | [andrey.babenko@epfl.ch] | [EPFL] |
-| [Maximus van Den Bogaard] | [maximusvandenbogaard.@epfl.ch] | [EPFL] |
+| [Maximus van den Bogaard] | [maximus.vandenbogaard@epfl.ch] | [EPFL] |
 
 ---
 
