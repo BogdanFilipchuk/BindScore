@@ -1,12 +1,17 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "bindscore"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["requests"]
+dependencies = [
+    "requests",
+    "biopython",
+    "numpy",
+    "freesasa"
+]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/bindscore"]
