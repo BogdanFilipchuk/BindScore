@@ -24,16 +24,10 @@ def fetch_pdb(pdb_id):
             raw_pdb_data = response.read()
         
         pdb_data = raw_pdb_data.decode('utf-8')
-
-        # Save the PDB data to a local file
-        output_path = Path(f'{pdb_id}.pdb')
     
-        with open(output_path, 'w') as f:
-            f.write(pdb_data)
-    
-        print(f"PDB file saved to {output_path.resolve()}")
+        print(f"PDB file fetched successfully.")
         
-        return str(output_path.resolve())
+        return pdb_data
     
 class Protein_Structure:
     def __init__(self, pdb_file):
@@ -69,23 +63,22 @@ class Protein_Structure:
 
         parsed_data = []
 
-        with open(self.pdb_file, 'r') as f:
-            for line in f:
-                if line.startswith('ATOM') or line.startswith('HETATM'):
-                    # Parse
-                    info = {
-                        'type' : line[0:6].strip(),
-                        'atom_seq': line[6:11].strip(),
-                        'atom_name': line[12:16].strip(),
-                        'residue_name': line[17:20].strip(),
-                        'chain': line[21].strip(),
-                        'residue_seq': line[22:26].strip(),
-                        'x': float(line[30:38].strip()),
-                        'y': float(line[38:46].strip()),
-                        'z': float(line[46:54].strip()),
-                        'atom_symbol': line[76:78].strip()
-                    }
-                    parsed_data.append(info)
+        for line in self.pdb_file:
+            if line.startswith('ATOM') or line.startswith('HETATM'):
+                # Parse
+                info = {
+                    'type' : line[0:6].strip(),
+                    'atom_seq': line[6:11].strip(),
+                    'atom_name': line[12:16].strip(),
+                    'residue_name': line[17:20].strip(),
+                    'chain': line[21].strip(),
+                    'residue_seq': line[22:26].strip(),
+                    'x': float(line[30:38].strip()),
+                    'y': float(line[38:46].strip()),
+                    'z': float(line[46:54].strip()),
+                    'atom_symbol': line[76:78].strip()
+                }
+                parsed_data.append(info)
 
         return parsed_data
 
