@@ -3,41 +3,15 @@ from pathlib import Path
 import numpy as np
 
 
-def fetch_pdb(pdb_id):
-    '''
-    Fetches the PDB file for the specified protein and saves it locally.
-    Args:
-        pdb_id (str): The 4-character PDB ID of the protein.
-    Returns:
-        str: The full path to the saved PDB file.
-    '''
-
-    pdb_id = pdb_id.upper()
-
-    if len(pdb_id) != 4:
-        raise ValueError("PDB ID must be exactly 4 characters long.")
-    else:
-        print(f"Fetching PDB file for {pdb_id}...")
-        url = f'https://files.rcsb.org/download/{pdb_id}.pdb'
-
-        with urllib.request.urlopen(url) as response:
-            raw_pdb_data = response.read()
-        
-        pdb_data = raw_pdb_data.decode('utf-8')
-    
-        print(f"PDB file fetched successfully.")
-        
-        return pdb_data
-    
 class Protein_Structure:
     def __init__(self, pdb_file):
         '''
         Initializes the Protein_Structure object by parsing the PDB file.
         The chains (polypeptides) and small molecules are separated for easier access.
         Args:
-            pdb_file (str): The path to the PDB file.
+            pdb_file (str): The raw PDB data as a string.
         Functions:
-            pdb_file - The path to the PDB file.
+            pdb_file - The raw PDB data as a string.
             all_atoms() - Parses the PDB file and extracts relevant information.
             backbone() - Extracts the backbone atoms from the parsed PDB data.
             side_chain() - Extracts the side chain atoms from the parsed PDB data.
@@ -56,7 +30,7 @@ class Protein_Structure:
         '''
         Parses the PDB file and extracts relevant information.
         Args:
-            pdb_file (str): The path to the PDB file.
+            pdb_file (str): The raw PDB data as a string.
         Returns:
             list: A list of dictionaries containing the parsed information.
         '''
@@ -216,8 +190,9 @@ class Protein_Structure:
         # Can be extended
 
         return summary_dict
-    
-class Interaction:
+ 
+
+ class Interaction:
     def __init__(self, atom1, atom2, distance):
         '''
         Initializes the Interaction object with the two atoms and their distance.
@@ -262,15 +237,3 @@ def possible_interaction_sites(chain1, chain2, threshold=5.0):
                 possible_sites.append(Interaction(atom1, atom2, distance))
 
     return possible_sites
-
-def example_usage():
-    '''
-    Example usage of the functions.
-    '''
-
-    fetch_pdb('1A2B')
-    protein = Protein_Structure('1A2B.pdb')
-    print(protein.summary())
-    print(possible_interaction_sites(protein.get_chain('A'), protein.get_small_molecule('HOH'))[1:5]) # Print a few possible interaction sites between chain A and water molecules
-
-example_usage()
