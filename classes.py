@@ -2,6 +2,7 @@ import urllib.request
 from pathlib import Path
 import numpy as np
 
+# NOT FINISHED YET, STILL IN PROGRESS | Protein_Structure and Interaction classes
 
 class Protein_Structure:
     def __init__(self, pdb_file):
