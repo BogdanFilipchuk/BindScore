@@ -15,7 +15,7 @@ def check_connection(url: str):
 #check_connection(database_url)
 
 
-def fetch_pdb(database_url: str, pdb_id: str, save_dir: str = ".") -> str:
+def fetch_pdb_file(database_url: str, pdb_id: str, save_dir: str = ".") -> str:
     """"
     Fetching a PDB file from the RCSB PDB database.
     Arguments:
@@ -44,4 +44,4 @@ def fetch_pdb(database_url: str, pdb_id: str, save_dir: str = ".") -> str:
 
     return file_path
 
-fetch_pdb(pdb_database_url,"6PYH" )
+fetch_pdb_file(pdb_database_url,"6PYH" )
