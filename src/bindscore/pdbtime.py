@@ -71,7 +71,7 @@ class Protein_Structure:
                     'atom_seq': line[6:11].strip(),
                     'atom_name': line[12:16].strip(),
                     'residue_name': line[17:20].strip(),
-                    'chain': line[21].strip(),
+                    'chain': line[21:23].strip(),
                     'residue_seq': line[22:26].strip(),
                     'x': float(line[30:38].strip()),
                     'y': float(line[38:46].strip()),
