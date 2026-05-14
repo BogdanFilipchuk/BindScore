@@ -30,7 +30,7 @@ def fetch_pdb(pdb_id):
         return pdb_data
     
 class Protein_Structure:
-    def __init__(self, pdb_file):
+    def __init__(self, pdb_file:Path):
         '''
         Initializes the Protein_Structure object by parsing the PDB file.
         The chains (polypeptides) and small molecules are separated for easier access.
@@ -63,7 +63,7 @@ class Protein_Structure:
 
         parsed_data = []
 
-        for line in self.pdb_file:
+        for line in self.pdb_file.read_text().splitlines():
             if line.startswith('ATOM') or line.startswith('HETATM'):
                 # Parse
                 info = {
