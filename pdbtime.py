@@ -82,7 +82,8 @@ class Protein_Structure:
                         'residue_seq': line[22:26].strip(),
                         'x': float(line[30:38].strip()),
                         'y': float(line[38:46].strip()),
-                        'z': float(line[46:54].strip())
+                        'z': float(line[46:54].strip()),
+                        'atom_symbol': line[76:78].strip()
                     }
                     parsed_data.append(info)
 
@@ -223,6 +224,32 @@ class Protein_Structure:
 
         return summary_dict
     
+class Interaction:
+    def __init__(self, atom1, atom2, distance):
+        '''
+        Initializes the Interaction object with the two atoms and their distance.
+        Args:
+            atom1 (dict): A dictionary containing the information for the first atom.
+            atom2 (dict): A dictionary containing the information for the second atom.
+            distance (float): The distance between the two atoms.
+        '''
+
+        self.atom1 = atom1
+        self.atom2 = atom2
+        self.distance = distance
+    
+    #  atom sets — which atoms can form which interactions
+    
+    hbond_donors = {'N', 'O', 'NE', 'NH1', 'NH2', 'NZ', 'OG', 'OG1', 'OH'}
+    hbond_acceptors = {'O', 'OD1', 'OD2', 'OE1', 'OE2', 'ND1', 'NE2', 'OH'}
+
+    hydrophobic_atoms = {'CB', 'CG', 'CG1', 'CG2', 'CD', 'CD1', 'CD2', 'CE', 'CE1', 'CE2', 'CE3', 'CZ', 'CZ2', 'CZ3'}
+
+    charged_pos = {'NZ', 'NH1', 'NH2', 'NE'}    # lys, arg
+    charged_neg = {'OD1', 'OD2', 'OE1', 'OE2'}  # asp, glu
+
+    aromatic_res = {'PHE', 'TYR', 'TRP', 'HIS'}  # pi-pi stacking
+
 def possible_interaction_sites(chain1, chain2, threshold=5.0):
     '''
     Identifies interaction sites between the specified chains and/or small molecules based on only on spatial proximity.
@@ -239,7 +266,7 @@ def possible_interaction_sites(chain1, chain2, threshold=5.0):
         for atom2 in chain2:
             distance = np.linalg.norm(np.array([atom1['x'], atom1['y'], atom1['z']]) - np.array([atom2['x'], atom2['y'], atom2['z']]))
             if distance <= threshold:
-                possible_sites.append((atom1, atom2, distance))
+                possible_sites.append(Interaction(atom1, atom2, distance))
 
     return possible_sites
 
