@@ -30,6 +30,10 @@ def fetch_pdb(database_url: str, pdb_id: str, save_dir: str = ".") -> str:
     pdb_id = pdb_id.upper().strip()
     download_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
     file_path = os.path.join(save_dir, f"{pdb_id}.pdb")
+    
+    if len(pdb_id) != 4:
+        raise ValueError("PDB ID must be exactly 4 characters long.")
+    
 
     print(f"Fetching {pdb_id} from {download_url} ...")
     response = requests.get(download_url)
@@ -40,4 +44,4 @@ def fetch_pdb(database_url: str, pdb_id: str, save_dir: str = ".") -> str:
 
     return file_path
 
-fetch_pdb(pdb_database_url,"12CI" )
+fetch_pdb(pdb_database_url,"6PYH" )

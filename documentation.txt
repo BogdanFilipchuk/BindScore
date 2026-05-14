@@ -1,3 +1,6 @@
-###This text file contains various documentation for the project. For instance comments about modules used / credits / etc. To COMPLETE
-### SASA : https://freesasa.github.io/1.1/Python.html 
-# This contains the documentation 
+This text file contains various documentation for the project. For instance comments about modules used / credits / etc. To COMPLETE
+### FREESASA : https://freesasa.github.io/1.1/Python.html 
+# This contains the documentation for the freesasa module.
+
+
+### Add other things 
