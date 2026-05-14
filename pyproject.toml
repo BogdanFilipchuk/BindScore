@@ -13,12 +13,12 @@ dependencies = [
     "freesasa",
     "streamlit", 
     "matplotlib",
-    "streamlit_ketcher", 
-    "stmol", 
     "py3Dmol", 
-    "mols2grid", 
-    "scipy", 
-    "plotly"
+    "mols2grid",
+    "ipython_genutils",
+    =======
+    "pymol-open-source",
+    "pathlib"
 ]
 
 [tool.hatch.build.targets.wheel]
