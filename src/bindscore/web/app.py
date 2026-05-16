@@ -1,7 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
-from pdbtime import fetch_pdb
+from bindscore.pdb_file_treatment.pdb_utils import fetch_pdb_data as fetch_pdb
 import py3Dmol
 import streamlit.components.v1 as components
 
@@ -13,7 +13,7 @@ st.title("BindScore - Binding Energy Predictor")
 
 #####MAIN AREA#####
 ### protein input
-protein_input = fetch_pdb(st.text_input("Enter protein PDB ID (e.g. 1A2B)", "1A2B"))  # input the protein PDB ID
+protein_input = fetch_pdb(st.text_input("Enter protein PDB RCSB database ID (e.g. 1A2B)", "1A2B"))  # input the protein PDB ID
 
 ### selectbox with the visualization type of the protein
 Protein_drawmode = st.selectbox("Protein visualization mode", ["stick", "cartoon", "surface"])  # the selectbox

@@ -58,7 +58,5 @@ def fetch_pdb_data(pdb_id:str)->str:
         
     return pdb_data
 
-print(fetch_pdb_data("C:/Users/karas/Desktop/BindScore/1A2B.pdb"))
-
 # def fetch_pdb_file(pdb_id):
     
