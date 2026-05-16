@@ -1,5 +1,7 @@
-import pathlib 
-import bindscore.pdbtime
+import os
+from pathlib import Path
+import requests
+
 # def get_heteroatoms_from_pdb(pdb_path:pathlib.Path)->pathlib.Path:
 #     """
 #     Returns the path of a file containing only ligand part of the pdb.
@@ -22,31 +24,41 @@ import bindscore.pdbtime
 #     with open(only_protein_file_path,"w") as file:
 #         file.write("\n".join(only_protein_lines) + "\nEND\n")    
 
-def fetch_pdb_data(pdb_id):
+def fetch_pdb_data(pdb_id:str)->str:
     '''
-    Fetches the PDB file for the specified protein and saves it locally.
+    Fetches the PDB data for the specified protein from a local file path 
+    of from the RCSB PDB database and returns the raw PDB data as a string.
     Args:
-        pdb_id (str): The 4-character PDB ID of the protein.
+        pdb_id (str): The 4-character PDB ID or a local file path 
+        to a .pdb file of the protein.
     Returns:
-        str: The full path to the saved PDB file.
+        str: The PDB data as a string.
     '''
 
+    # Check if the input is a local file path
+    if os.path.exists(pdb_id):
+        print(f"Reading local PDB file: {pdb_id}")
+        with open(pdb_id, 'r') as f:
+            return f.read()
+
+    # If not a local file, treat it as a PDB ID and fetch from RCSB PDB database
     pdb_id = pdb_id.upper()
 
     if len(pdb_id) != 4:
         raise ValueError("PDB ID must be exactly 4 characters long.")
-    else:
-        print(f"Fetching PDB file for {pdb_id}...")
-        url = f'https://files.rcsb.org/download/{pdb_id}.pdb'
+    
+    print(f"Fetching PDB file for {pdb_id}...")
+    url = f'https://files.rcsb.org/download/{pdb_id}.pdb'
 
-        with urllib.request.urlopen(url) as response:
-            raw_pdb_data = response.read()
+    raw_pdb_data = requests.get(url)
+    raw_pdb_data.raise_for_status() # Error if the request is unsuccessful
+    pdb_data = raw_pdb_data.text
         
-        pdb_data = raw_pdb_data.decode('utf-8')
-    
-        print(f"PDB file fetched successfully.")
+    print(f"PDB data fetched successfully.")
         
-        return pdb_data
-    
+    return pdb_data
+
+print(fetch_pdb_data("C:/Users/karas/Desktop/BindScore/1A2B.pdb"))
+
 # def fetch_pdb_file(pdb_id):
     
