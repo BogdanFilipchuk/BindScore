@@ -1,0 +1,8 @@
+###This text file contains various documentation for the project. For instance comments about modules used / credits / etc. To COMPLETE
+###The bindscore project is based on several papers and uses various external python packages to perform calculations in accordnce to those papers.
+###The determination of enthropical contribution to binding free energy is based on the framework established in the Singh and Warshel paper. (https://pubmed.ncbi.nlm.nih.gov/20186973/)
+
+
+
+### SASA : https://freesasa.github.io/1.1/Python.html 
+### OPEN MM

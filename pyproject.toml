@@ -10,7 +10,10 @@ dependencies = [
     "requests",
     "biopython",
     "numpy",
-    "freesasa"
+    "freesasa",
+    "pymol-open-source",
+    "pathlib",
+    "openmm"
 ]
 
 [tool.hatch.build.targets.wheel]
