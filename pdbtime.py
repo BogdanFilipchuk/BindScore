@@ -273,4 +273,4 @@ def example_usage():
     print(protein.summary())
     print(possible_interaction_sites(protein.get_chain('A'), protein.get_small_molecule('HOH'))[1:5]) # Print a few possible interaction sites between chain A and water molecules
 
-example_usage()
+#example_usage()
