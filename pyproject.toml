@@ -12,7 +12,8 @@ dependencies = [
     "numpy",
     "freesasa",
     "pymol-open-source",
-    "pathlib"
+    "pathlib",
+    "openmm"
 ]
 
 [tool.hatch.build.targets.wheel]
