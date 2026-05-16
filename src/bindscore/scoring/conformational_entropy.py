@@ -146,15 +146,14 @@ def add_cartesian_harmonic_restraint_force(system, positions, atom_indices, K_kc
         # pos is [x, y, z] in nm — these become the fixed anchor R̄_i
         harmonic_restraint_force.addParticle(idx, pos)
 
-    # Add the harmonic_restraint to the system (modifies system in-place)
+    # Add the harmonic_restraint to the system 
     system.addForce(harmonic_restraint_force)
 
     return harmonic_restraint_force   # return so caller can call setParameter("K", ...) later
 
 
-# =============================================================================
-# FUNCTION 2 — RUN THE FEP LADDER (release K from large to small)
-# =============================================================================
+# FUNCTION 2 — RUNNING THE FEP LADDER (releasing K from large to small) (God help me)
+
 
 def run_rr_fep(system, topology, positions, atom_indices, K_initial=K_INITIAL, K_final=K_FINAL, n_windows=N_WINDOWS, sim_time_ps=SIM_TIME_PS):
     """
