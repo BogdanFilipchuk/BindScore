@@ -1,6 +1,5 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-import numpy as np
 from bindscore.pdb_file_treatment.pdb_utils import fetch_pdb_data as fetch_pdb
 import py3Dmol
 import streamlit.components.v1 as components
