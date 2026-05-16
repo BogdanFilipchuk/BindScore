@@ -18,7 +18,8 @@ dependencies = [
     "ipython_genutils",
     =======
     "pymol-open-source",
-    "pathlib"
+    "pathlib",
+    "openmm"
 ]
 
 [tool.hatch.build.targets.wheel]
