@@ -16,12 +16,13 @@ protein_input = fetch_pdb(st.text_input("Enter protein PDB RCSB database ID (e.g
 # residues_importance = calculate_residue_importance(protein_input)
 
 ### selectbox with the visualization type of the protein
-Protein_drawmode = st.selectbox("Protein visualization mode", ["stick", "cartoon", "surface"])  # the selectbox
+Protein_drawmode = st.selectbox("Protein visualization mode", ["cartoon", "surface", "stick"])  # the selectbox
 
 ### protein viewer
 if st.button("Visualize"):                              # button to load the protein viewer
+    st.spinner(text="Loading...", width="content")      # Show loading spinner while processing
     viewer = py3Dmol.view(width=600, height=600)        # Create viewer
-    viewer.addModel(protein_input, "pdb")
+    viewer.addModel(protein_input, "pdb")               # PDB format
     if Protein_drawmode == "surface":                   # Surface drawing requires a separate call
         viewer.addSurface(py3Dmol.VDW, {"opacity": 1})
     elif Protein_drawmode == "cartoon":                   # Apply selected style
@@ -38,6 +39,9 @@ if st.button("Visualize"):                              # button to load the pro
     html = viewer._make_html()                          # Render in Streamlit
     components.html(html, width=600, height=600)        # Size of the streamlit component
 
+### Interactions 
+# data = imported_interactions
+# st.dataframe(data)  # Display interactions in a table format
 
 ### pH Slider (expander)
 # with st.expander("pH Scale"):
