@@ -1,37 +1,39 @@
 """
-conformational_entropy_commented.py
+Conformational entropy module
 =====================================
-Implements the harmonic_restraint Release (RR) approach to compute the configurational
-entropy contribution to protein-ligand binding, following:
+This module implements the harmonic Restraint Release Free Energy perturbation (RR-FEP) approach to compute the configurational
+entropy contribution to protein-ligand binding. This module is following the Singh & Warshel article approach.
 
     Singh & Warshel (2010), Proteins 78(7):1724-1735
-    "A Comprehensive Examination of the Contributions to Binding Entropy
-     of Protein-Ligand Complexes"
+    "A Comprehensive Examination of the Contributions to Binding Entropy of Protein-Ligand Complexes"
 
-CONCEPTUAL SUMMARY
+SUMMARY 
 ------------------
-We want to know how much conformational freedom is lost by the ligand chain when it moves
-from water (unbound) into the protein active site (bound). We measure lost degrees of freedom indirectly measuring the 
-free energy cost of removing those dof's via harmonic harmonic_restraints to a set of reference coordinates , and then releasing those restrains.
+We want to determine how much conformational freedom is lost by the ligand chain when it moves from an unbound state into a bound state at the protein active site.
+We measure lost degrees of freedom indirectly (easier) by measuring the free energy cost of removing those dof's.
+The dd_cartesian_harmonic_restraint_force() function adds those harmonic restraints, attached to a set of given reference coordinates ( TODO : EXPLAIN HOW ). 
+The intensity of this force is given by K (analogous to a spring), and releasing K to zero gives the taken degrees of freedom back. 
+The free energy of that release process, ΔG_RR, is what we aim to compute.
 
-The workflow is:
+Therefore, the pipeline is:
   1. Attach restrains to all ligand atoms
   2. Slowly release the  restrains to K → 0 in both bound and unbound environments environments
   3. The free energy cost of this release ≈ -T*ΔS 
   4. Difference between bound and unbound gives the bindin entropy conformational penalty
 
-Key equations, referenced from the Reference paper:
+Here are the references to key equations referenced from thepaper:
   Eq. (2): U_rest = (K/2) * Σ_i (R_i - R̄_i)²      [the spring potential]
   Eq. (3): FEP estimator via Zwanzig formula
   Eq. (4): -T*ΔS_conf_bind = min(ΔG_RR^bound) - min(ΔG_RR^unbound)
   Eq. (8): adds cage correction for 1M standard state
+------------------
 
-Note on the units:
-----------
-OpenMM works in kJ/mol and nm.
-The reference Reference paper (Singh and Warshel) uses kcal/mol and Å.
-Conversions: 1 kcal = 4.184 kJ  |  1 nm = 10 Å  |  so 1 kcal/mol/Å² = 418.4 kJ/mol/nm²
 """
+# Note on the units:
+# OpenMM works in kJ/mol and nm.
+# The reference Reference paper (Singh and Warshel) uses kcal/mol and Å.
+# Conversions: 1 kcal = 4.184 kJ  |  1 nm = 10 Å  |  so 1 kcal/mol/Å² = 418.4 kJ/mol/nm²
+"TODO : Set unit conversions ?"
 
 import openmm as mm
 import openmm.app as app
@@ -98,9 +100,9 @@ RT_KCAL        = kB_KCAL * TEMPERATURE_K  # thermal energy in kcal/mol at 300K �
 
 def add_cartesian_harmonic_restraint_force(system, positions, atom_indices, K_kcal) -> mm.CustomExternalForce:   
     """
-    Attaches a harmonic restrain to each ligand atom, anchored at its current
-    position.( Equation (2) of the paper). R̄_i are the reference (anchor) coordinates and K is the spring
-    constant. Large K → ligand is frozen. K → 0 → ligand is free.
+    Attaches a harmonic restrain to each ligand atom, anchored at its current position.( Equation (2) of the paper). This is an essential step in realising the RR-FEP method.
+
+    R̄_i are the reference (anchor) coordinates and K is simillar to a spring constant (Large K → ligand is frozen. K → 0 → ligand is free.)
 
     Parameters
     ----------
