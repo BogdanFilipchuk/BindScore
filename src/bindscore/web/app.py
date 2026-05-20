@@ -1,12 +1,8 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-<<<<<<< HEAD
-=======
-import numpy as np
->>>>>>> ed0c948053e0d6a53a645f320b92f2c597b8e464
+# import matplotlib.pyplot as plt
 from bindscore.pdb_file_treatment.pdb_utils import fetch_pdb_data as fetch_pdb
 import py3Dmol
-import streamlit.components.v1 as components
+import streamlit.components.v1 as components # if using regular st.html, gives error
 
 #####TITLE#####
 st.title("BindScore - Binding Energy Predictor")
@@ -15,24 +11,33 @@ st.title("BindScore - Binding Energy Predictor")
 #st.sidebar.slider("Temperature [K]", 0.0, 600.0, 0.7)
 
 #####MAIN AREA#####
-### protein input
+### protein input and calculations
 protein_input = fetch_pdb(st.text_input("Enter protein PDB RCSB database ID (e.g. 1A2B)", "1A2B"))  # input the protein PDB ID
+# residues_importance = calculate_residue_importance(protein_input)
 
 ### selectbox with the visualization type of the protein
 Protein_drawmode = st.selectbox("Protein visualization mode", ["stick", "cartoon", "surface"])  # the selectbox
-py3dmol_drawmode = {"stick": {"stick": {}}, "cartoon": {"cartoon": {"color": "spectrum"}}} # dictionary to map the selectbox options to py3Dmol styles
 
 ### protein viewer
-if st.button("Load Protein"):                           #button to load the protein viewer
+if st.button("Visualize"):                              # button to load the protein viewer
     viewer = py3Dmol.view(width=600, height=600)        # Create viewer
     viewer.addModel(protein_input, "pdb")
     if Protein_drawmode == "surface":                   # Surface drawing requires a separate call
         viewer.addSurface(py3Dmol.VDW, {"opacity": 1})
-    else:
-        viewer.setStyle(py3dmol_drawmode[Protein_drawmode]) # Style options
+    elif Protein_drawmode == "cartoon":                   # Apply selected style
+        viewer.setStyle({'cartoon': {'color': 'spectrum'}}) # Style options
+    else:                                               # Default to stick style
+        viewer.setStyle({'stick': {}})                   # Stick style
+    # for residue in residues_importance:                 # Highlight important residues (if calculated)
+    #     color = residues_importance[residue]            # Get importance score for the residue
+    #     if Protein_drawmode == "surface":               # Surface drawing requires a separate call
+    #         viewer.addSurface(py3Dmol.VDW, {"opacity": 1}, color=color)
+    #     elif Protein_drawmode == "cartoon":                   # Apply selected style
+    #         viewer.setStyle({'resi': residue},  {'cartoon': {'color': color}}) # Style options
     viewer.zoomTo()                                     # Zoom to fit the molecule
     html = viewer._make_html()                          # Render in Streamlit
     components.html(html, width=600, height=600)        # Size of the streamlit component
+
 
 ### pH Slider (expander)
 # with st.expander("pH Scale"):
