@@ -4,6 +4,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / 'pdb_file_treatment'))
 from pdb_utils_fetch import fetch_pdb_data
 
+
 class Protein_Structure:
     def __init__(self, pdb_data:str):
         '''
@@ -12,15 +13,20 @@ class Protein_Structure:
         Args:
             pdb_data (str): The PDB data as a string.
         Functions:
-            all_atoms() - Parses the PDB file and extracts relevant information.
-            backbone() - Extracts the backbone atoms from the parsed PDB data.
-            side_chain() - Extracts the side chain atoms from the parsed PDB data.
-            hetero_atoms() - Extracts the hetero atoms from the parsed PDB data.
-            chains() - Extracts the unique chains from the parsed PDB data.
-            get_chain(chain_id) - Extracts the atoms for a specific chain from the parsed PDB data.
-            small_molecules() - Extracts the unique small molecules from the parsed PDB data.
-            get_small_molecule(small_molecule_id) - Extracts the atoms for a specific small molecule from the parsed PDB data.
-            summary() - Provides a summary of the protein structure.
+            parse_pdb()                          - Parses the PDB data and extracts relevant information.
+            backbone()                           - Extracts the backbone atoms (N, CA, C, O).
+            side_chain()                         - Extracts the side chain atoms.
+            ring_atoms()                         - Extracts the aromatic ring atoms (PHE, TYR, TRP, HIS).
+            get_ring_centroid(ring_atoms)        - Calculates the centroid of a single ring.
+            get_ring_normal(ring_atoms)          - Calculates the normal vector of a single ring.
+            get_rings(chain)                     - Extracts all rings of a chain with their centroids and normals.
+            hetero_atoms()                       - Extracts the hetero atoms.
+            chains()                             - Extracts the unique chains.
+            get_chain(chain_id)                  - Extracts the atoms for a specific chain.
+            small_molecules()                    - Extracts the unique small molecules.
+            get_small_molecule(small_molecule_id)- Extracts the atoms for a specific small molecule.
+            get_entity(entity_id)                - Extracts the atoms for a chain or small molecule.
+            summary()                            - Provides a summary of the protein structure.
         '''
 
         self.pdb_data  = pdb_data
@@ -28,11 +34,10 @@ class Protein_Structure:
 
     def parse_pdb(self):
         '''
-        Parses the PDB file and extracts relevant information.
-        Args:
-            pdb_data (str): The raw PDB data as a string.
+        Parses the PDB data stored in self.pdb_data and extracts relevant information for each atom.
         Returns:
-            list: A list of dictionaries containing the parsed information.
+            list: A list of dictionaries, one per atom, containing type, atom_seq, atom_name,
+                  residue_name, chain, residue_seq, x, y, z, and atom_symbol.
         '''
 
         parsed_data = []
@@ -46,7 +51,7 @@ class Protein_Structure:
                     'atom_seq': line[6:11].strip(),
                     'atom_name': line[12:16].strip(),
                     'residue_name': line[17:20].strip(),
-                    'chain': line[21].strip(),
+                    'chain': line[20:22].strip(),
                     'residue_seq': line[22:26].strip(),
                     'x': float(line[30:38].strip()),
                     'y': float(line[38:46].strip()),
@@ -59,7 +64,7 @@ class Protein_Structure:
 
     def backbone(self):
         '''
-        Extracts the backbone atoms from the parsed PDB data.
+        Extracts the backbone atoms (N, CA, C, O) from the parsed PDB data.
         Returns:
             list: A list of dictionaries containing only the backbone atoms.
         '''
@@ -74,7 +79,7 @@ class Protein_Structure:
 
     def side_chain(self):
         '''
-        Extracts the side chain atoms from the parsed PDB data.
+        Extracts the side chain atoms (every ATOM except backbone N, CA, C, O) from the parsed PDB data.
         Returns:
             list: A list of dictionaries containing only the side chain atoms.
         '''
@@ -87,9 +92,127 @@ class Protein_Structure:
 
         return side_chain_atoms
     
+    def ring_atoms(self):
+        '''
+        Extracts the aromatic ring atoms from the parsed PDB data.
+        Only atoms belonging to the aromatic ring of PHE, TYR, TRP, or HIS are included
+        (side chain atoms outside the ring such as CB are excluded).
+        Returns:
+            list: A list of dictionaries containing only the aromatic ring atoms.
+        '''
+
+        aromatic_ring_atoms = {
+        'PHE': {'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ'},
+        'TYR': {'CG', 'CD1', 'CD2', 'CE1', 'CE2', 'CZ'},
+        'TRP': {'CG', 'CD1', 'CD2', 'CE2', 'CE3', 'CZ2', 'CZ3', 'CH2'},
+        'HIS': {'CG', 'ND1', 'CD2', 'CE1', 'NE2'}
+        }
+
+        ring_atoms = []
+        for atom in self.side_chain():
+            if atom['residue_name'] in aromatic_ring_atoms and atom['atom_name'] in aromatic_ring_atoms[atom['residue_name']]:
+                ring_atoms.append(atom)
+
+        return ring_atoms
+    
+    def get_ring_centroid(self, ring_atoms):
+        '''
+        Calculates the geometric centroid of a ring by averaging the coordinates of its atoms.
+        Args:
+            ring_atoms (list): A list of dictionaries containing the information of the ring atoms.
+        Returns:
+            dict: A dictionary with keys 'x', 'y', 'z' giving the centroid coordinates.
+        '''
+
+        x_sum = sum(atom['x'] for atom in ring_atoms)
+        y_sum = sum(atom['y'] for atom in ring_atoms)
+        z_sum = sum(atom['z'] for atom in ring_atoms)
+        num_atoms = len(ring_atoms)
+
+        centroid = {
+            'x': x_sum / num_atoms,
+            'y': y_sum / num_atoms,
+            'z': z_sum / num_atoms
+        }
+
+        return centroid
+    
+    def get_ring_normal(self, ring_atoms):
+        '''
+        Calculates a normal vector to the ring plane using the cross product of two
+        vectors defined by the first three ring atoms. The vector is not normalized
+        (magnitude depends on bond lengths) but its direction is what matters for
+        downstream angle calculations.
+        Args:
+            ring_atoms (list): A list of dictionaries containing the information of the ring atoms.
+        Returns:
+            dict: A dictionary with keys 'x', 'y', 'z' giving the normal vector components.
+        '''
+
+        # Take 3 atoms to define 2 vectors in the ring plane
+        atom1 = ring_atoms[0]
+        atom2 = ring_atoms[1]
+        atom3 = ring_atoms[2]
+
+        # Two vectors in the ring plane
+        v1 = {
+            'x': atom2['x'] - atom1['x'],
+            'y': atom2['y'] - atom1['y'],
+            'z': atom2['z'] - atom1['z']
+        }
+        v2 = {
+            'x': atom3['x'] - atom1['x'],
+            'y': atom3['y'] - atom1['y'],
+            'z': atom3['z'] - atom1['z']
+        }
+
+        # Cross product
+        normal = {
+            'x': v1['y'] * v2['z'] - v1['z'] * v2['y'],
+            'y': v1['z'] * v2['x'] - v1['x'] * v2['z'],
+            'z': v1['x'] * v2['y'] - v1['y'] * v2['x']
+        }
+
+        return normal
+
+    def get_rings(self, chain):
+        '''
+        Extracts all aromatic rings of a chain, each with its constituent atoms, centroid and normal vector.
+        Args:
+            chain (str): The chain ID.
+        Returns:
+            list: A list of dictionaries, one per ring, with keys
+                  'residue_name', 'residue_seq', 'chain', 'atoms', 'centroid', 'normal'.
+        '''
+
+        rings = []
+        seen = set()
+
+        for atom in self.ring_atoms():
+            if atom['chain'] == chain:
+                ring_id = (atom['residue_name'], atom['residue_seq'])
+                if ring_id not in seen:
+                    seen.add(ring_id)
+                    ring_atoms = [
+                        a for a in self.ring_atoms()
+                        if a['residue_name'] == atom['residue_name'] and
+                        a['residue_seq'] == atom['residue_seq'] and
+                        a['chain'] == chain
+                    ]
+                    rings.append({
+                        'residue_name': atom['residue_name'],
+                        'residue_seq': atom['residue_seq'],
+                        'chain': chain,
+                        'atoms': ring_atoms,
+                        'centroid': self.get_ring_centroid(ring_atoms),
+                        'normal': self.get_ring_normal(ring_atoms)
+                    })
+
+        return rings
+    
     def hetero_atoms(self):
         '''
-        Extracts the hetero atoms from the parsed PDB data.
+        Extracts the hetero atoms (HETATM records) from the parsed PDB data.
         Returns:
             list: A list of dictionaries containing only the hetero atoms.
         '''
@@ -104,9 +227,9 @@ class Protein_Structure:
     
     def chains(self):
         '''
-        Extracts the unique chains from the parsed PDB data.
+        Extracts the unique chain IDs of the polypeptide chains from the parsed PDB data.
         Returns:
-            set: A set of unique chains.
+            set: A set of unique chain IDs.
         '''
 
         chains = set()
@@ -118,11 +241,13 @@ class Protein_Structure:
     
     def get_chain(self, chain_id):
         '''
-        Extracts the atoms for a specific chain from the parsed PDB data.
+        Extracts all ATOM records belonging to a specific chain.
         Args:
             chain_id (str): The ID of the chain to extract atoms from.
         Returns:
             list: A list of dictionaries containing the atoms for the specified chain.
+        Raises:
+            ValueError: If the chain is not present in the PDB data.
         '''
 
         if chain_id not in self.chains():
@@ -137,9 +262,10 @@ class Protein_Structure:
     
     def small_molecules(self):
         '''
-        Extracts the unique small molecules from the parsed PDB data.
+        Extracts the unique small molecule residue names from the parsed PDB data.
+        Note: water molecules (HOH) are grouped under a single entry.
         Returns:
-            set: A set of unique small molecules.
+            set: A set of unique small molecule residue names.
         '''
 
         small_molecules = set()
@@ -151,11 +277,14 @@ class Protein_Structure:
     
     def get_small_molecule(self, small_molecule_id):
         '''
-        Extracts the atoms for a specific small molecule from the parsed PDB data.
+        Extracts all HETATM records belonging to a specific small molecule residue name.
+        Note: if small_molecule_id is 'HOH', this returns the atoms of every water molecule together.
         Args:
-            small_molecule_id (str): The ID of the small molecule to extract atoms from.
+            small_molecule_id (str): The residue name of the small molecule.
         Returns:
             list: A list of dictionaries containing the atoms for the specified small molecule.
+        Raises:
+            ValueError: If the small molecule is not present in the PDB data.
         '''
 
         # The water molecules are grouped together, not separate. So if the small_molecule_id is 'HOH', 
@@ -170,6 +299,24 @@ class Protein_Structure:
                 residue_atoms.append(atom)
 
         return residue_atoms
+    
+    def get_entity(self, entity_id):
+        '''
+        Extracts the atoms for a specific entity, which can be either a chain or a small molecule.
+        Args:
+            entity_id (str): The ID of the chain (e.g. 'A') or small molecule (e.g. 'HOH', 'ATP').
+        Returns:
+            list: A list of dictionaries containing the atoms for the specified entity.
+        Raises:
+            ValueError: If the entity is not present in the PDB data.
+        '''
+
+        if entity_id in self.chains():
+            return self.get_chain(entity_id)
+        elif entity_id in self.small_molecules():
+            return self.get_small_molecule(entity_id)
+        else:
+            raise ValueError(f"Entity '{entity_id}' not found in the PDB data.")
 
     def summary(self):
         '''
@@ -181,13 +328,16 @@ class Protein_Structure:
         print("Generating summary of the protein structure...")
 
         summary_dict = {
-        'num_atoms_total'   : len(self.all_atoms),
-        'num_chains'        : len(self.chains()),
-        'num_small_molecules' : len(self.small_molecules()),
-        'chain_ids'         : sorted(self.chains()),
-        'small_molecules'   : self.small_molecules()
+            'num_atoms_total'       : len(self.all_atoms),
+            'num_chains'            : len(self.chains()),
+            'num_small_molecules'   : len(self.small_molecules()),
+            'chain_ids'             : sorted(self.chains()),
+            'small_molecules'       : self.small_molecules(),
+            'num_backbone_atoms'    : len(self.backbone()),
+            'num_side_chain_atoms'  : len(self.side_chain()),
+            'num_hetero_atoms'      : len(self.hetero_atoms()),
+            'num_ring_atoms'        : len(self.ring_atoms()),
+            'rings_per_chain'       : {chain: self.get_rings(chain) for chain in self.chains()}
         }
-
-        # Can be extended
 
         return summary_dict
