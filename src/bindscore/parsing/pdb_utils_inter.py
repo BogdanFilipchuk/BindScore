@@ -58,31 +58,33 @@ def ring_pair_key(ring1, ring2):
 class Interaction:
     def __init__(self, protein, chain1, chain2, threshold=5.0):
         '''
-        Initializes the Interaction object between two entities of a protein structure.
-        Each entity can be either a polypeptide chain or a small molecule.
+        Initializes the Interaction object between two entities of a protein
+        structure. Each entity can be either a polypeptide chain or a small
+        molecule (including metals and water).
 
-        On initialization, atom pairs within `threshold` Angstroms are identified and
-        categorized into interaction types (hydrogen bonds, pi-pi stacking). Aromatic
-        rings of each chain entity are pre-cached for efficient pi-pi detection.
+        Aromatic rings for each entity are pre-cached as dictionaries keyed by
+        residue_seq (protein chains) or as lists (small molecules) to avoid
+        redundant computation during the atom-pair loop. All interactions within
+        the distance threshold are detected and stored on initialization.
         Args:
-            protein (Protein_Structure): The protein structure object.
-            chain1 (str): The ID of the first entity (chain ID, e.g. 'A', or small
-                        molecule residue name, e.g. 'ATP').
-            chain2 (str): The ID of the second entity.
-            threshold (float): The distance threshold in Angstroms for identifying
-                            possible atom-atom interactions. Defaults to 5.0.
+            protein (Protein_Structure): The parsed protein structure object.
+            chain1 (str): ID of the first entity — chain letter (e.g. 'A') or
+                small molecule residue name (e.g. 'ATP', 'ZN').
+            chain2 (str): ID of the second entity, same format as chain1.
+            threshold (float): Distance threshold in Angstroms for detecting
+                atom-atom contacts. Defaults to 5.0.
         Attributes:
             protein      - The Protein_Structure object.
-            chain1       - The ID of the first entity.
-            chain2       - The ID of the second entity.
-            entity1      - The atoms of the first entity (list of dicts).
-            entity2      - The atoms of the second entity (list of dicts).
-            rings1       - Aromatic rings in entity1, keyed by residue_seq (empty for small molecules).
-            rings2       - Aromatic rings in entity2, keyed by residue_seq (empty for small molecules).
-            interactions - List of detected atom-pair interactions with distance and type.
-        Functions:
-            find_interactions(threshold)         - Identifies atom pairs within threshold and categorizes them.
-            categorize_interaction(atom1, atom2) - Categorizes a single atom pair into an interaction type.
+            chain1       - ID of the first entity.
+            chain2       - ID of the second entity.
+            entity1      - Atoms of the first entity (list of dicts).
+            entity2      - Atoms of the second entity (list of dicts).
+            rings1       - Aromatic rings of entity1: dict keyed by residue_seq
+                        for protein chains, list for small molecules, empty
+                        dict if no rings are present.
+            rings2       - Same as rings1 for entity2.
+            interactions - List of all detected atom-pair interactions within
+                        threshold, each with keys atom1, atom2, distance, type.
         '''
 
         self.protein = protein
@@ -110,14 +112,22 @@ class Interaction:
 
     def find_interactions(self, threshold):
         '''
-        Iterates over all atom pairs (one from each entity) and identifies those within
-        the distance threshold. Each candidate pair is then passed to categorize_interaction
-        to determine the interaction type.
+        Iterates over all atom pairs (one from each entity) and identifies those
+        within the distance threshold. Each candidate pair is passed to
+        categorize_interaction to determine the interaction type. All pairs within
+        threshold are recorded, including those with type None (unclassified contacts).
+
+        Deduplication sets for hydrophobic contacts, salt bridges, and pi-pi
+        stacking are initialized here and passed through to categorize_interaction
+        so that multi-atom-pair interactions are reported only once per residue
+        pair or ring pair.
         Args:
-            threshold (float): The distance threshold in Angstroms.
+            threshold (float): Distance threshold in Angstroms. Only atom pairs
+                within this distance are considered.
         Returns:
-            list: A list of dictionaries, one per atom pair within threshold, with keys
-                'atom1', 'atom2', 'distance' (in Angstroms), and 'type' (str or None).
+            list: A list of dictionaries, one per atom pair within threshold, with
+                keys 'atom1', 'atom2', 'distance' (float, Angstroms), and 'type'
+                (str or None).
         '''
 
         interactions = []
@@ -139,7 +149,67 @@ class Interaction:
         return interactions
     
     def categorize_interaction(self, atom1, atom2, seen_hydrophobic=None, seen_salt_bridge=None, seen_pi_pi=None):
+        '''
+        Categorizes the interaction between two atoms based on the entity types
+        (chain or small molecule), atom identity, geometry, and chemical rules.
+        Checks are applied in priority order so that each atom pair is assigned
+        the most specific interaction type that applies.
 
+        Detection rules (in order of priority):
+            1. Disulfide bond: both atoms are CYS SG, separated by 1.8-2.5 A.
+            2. Metal coordination: one atom belongs to a metal residue (ZN, CA, MG,
+            NA, K, FE, CU, MN, CO, NI, CD, HG, PT, AU); the other is a known
+            coordinating atom (HIS ND1/NE2, CYS SG, ASP OD1/OD2, GLU OE1/OE2,
+            SER OG, THR OG1, MET SD), a backbone O/OXT, a water oxygen, or any S.
+            3. Salt bridge (protein-protein only): one atom is from a positively
+            charged side chain (ARG NH1/NH2/NE or LYS NZ), the other from a
+            negatively charged side chain (ASP OD1/OD2 or GLU OE1/OE2).
+            Reported once per residue pair via seen_salt_bridge.
+            4. Hydrogen bond (protein-protein): both atoms are N/O/F; one must be a
+            known donor (or backbone N, excluding PRO/HYP) and the other a known
+            acceptor (or backbone O/OXT). Pairing is checked in both directions.
+            5. Hydrogen bond (protein-SM or SM-protein): both atoms are N/O/F; the
+            protein atom must be capable of either donor or acceptor role. The SM
+            atom is treated as both.
+            6. Hydrogen bond (SM-SM): any N/O/F pair qualifies.
+            7. Pi-pi stacking (all entity combinations): for protein chains, triggered
+            by CG of PHE/TYR/TRP/HIS; for small molecules, by membership in a
+            detected aromatic ring. Ring centroid distance must be <= 5.5 A and
+            the normal-to-normal angle must be in the parallel (<=30 or >=150 deg)
+            or T-shaped (60-120 deg) range. Reported once per ring pair via
+            seen_pi_pi.
+            8. Hydrophobic contact (protein-protein only): both residues in
+            {LEU, ILE, VAL, PHE, TYR, TRP, MET, ALA, PRO}, both atoms are
+            non-backbone carbons (excluding C and CA). Reported once per residue
+            pair via seen_hydrophobic.
+            9. Halogen bond (all entity combinations): distance < 4.0 A; one atom is
+            a halogen (F, CL, BR, I) and the other is polar (known donor/acceptor,
+            backbone N/O/OXT, or S).
+        10. Dipole-dipole (all entity combinations): distance < 4.0 A; both atoms
+            are polar (known donor/acceptor, backbone N/O/OXT, or S) and neither
+            is a halogen. Catches polar contacts that do not satisfy stricter
+            h-bond donor/acceptor pairing (e.g. carbonyl-carbonyl, donor-donor,
+            sulfur-mediated contacts).
+
+        Args:
+            atom1 (dict): Parsed atom dict with keys type, atom_seq, atom_name,
+                residue_name, chain, residue_seq, x, y, z, atom_symbol.
+            atom2 (dict): Same format as atom1.
+            seen_hydrophobic (set or None): Residue-seq pairs already reported as
+                hydrophobic_contact; further pairs for the same residues return None.
+                Mutated in place on first detection.
+            seen_salt_bridge (set or None): Residue-seq pairs already reported as
+                salt_bridge; further pairs for the same residues return None.
+                Mutated in place on first detection.
+            seen_pi_pi (set or None): Ring-pair keys already reported as
+                pi-pi_stacking; further pairs for the same rings return None.
+                Mutated in place on first detection.
+        Returns:
+            str or None: One of 'disulfide_bond', 'metal_coordination', 'salt_bridge',
+                'hydrogen_bond', 'pi-pi_stacking', 'hydrophobic_contact',
+                'halogen_bond', 'dipole-dipole', or None if no interaction is detected.
+        '''
+        
         # Hydrogen Bonds
         h_bond_donor = {('ARG', 'NE'), ('ARG', 'NH1'), ('ARG', 'NH2'), ('ASN', 'ND2'), 
                         ('GLN', 'NE2'), ('HIS', 'ND1'), ('HIS', 'NE2'), ('HYP', 'OD'), 
