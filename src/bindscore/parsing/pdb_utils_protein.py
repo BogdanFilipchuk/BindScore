@@ -455,10 +455,10 @@ class Protein_Structure:
     
     def metals(self):
         metal_symbols = {'ZN', 'CA', 'MG', 'NA', 'K', 'FE', 'CU', 'MN', 'CO', 'NI', 'CD', 'HG', 'PT', 'AU'}
-        metals = set()
+        metals = []
         for atom in self.all_atoms:
             if atom['type'] == 'HETATM' and atom['atom_symbol'].upper() in metal_symbols:
-                metals.add(atom['residue_name'])
+                metals.append(atom)
         return metals
     
     def get_entity(self, entity_id):

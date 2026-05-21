@@ -185,7 +185,7 @@ class Interaction:
             9. Halogen bond (all entity combinations): distance < 4.0 A; one atom is
             a halogen (F, CL, BR, I) and the other is polar (known donor/acceptor,
             backbone N/O/OXT, or S).
-        10. Dipole-dipole (all entity combinations): distance < 4.0 A; both atoms
+            10. Dipole-dipole (all entity combinations): distance < 4.0 A; both atoms
             are polar (known donor/acceptor, backbone N/O/OXT, or S) and neither
             is a halogen. Catches polar contacts that do not satisfy stricter
             h-bond donor/acceptor pairing (e.g. carbonyl-carbonyl, donor-donor,
@@ -209,7 +209,10 @@ class Interaction:
                 'hydrogen_bond', 'pi-pi_stacking', 'hydrophobic_contact',
                 'halogen_bond', 'dipole-dipole', or None if no interaction is detected.
         '''
-        
+
+        if atom1['residue_seq'] == atom2['residue_seq'] and atom1['chain'] == atom2['chain']:
+            return None
+
         # Hydrogen Bonds
         h_bond_donor = {('ARG', 'NE'), ('ARG', 'NH1'), ('ARG', 'NH2'), ('ASN', 'ND2'), 
                         ('GLN', 'NE2'), ('HIS', 'ND1'), ('HIS', 'NE2'), ('HYP', 'OD'), 
@@ -237,7 +240,7 @@ class Interaction:
         coordinating_atoms = {('HIS', 'ND1'), ('HIS', 'NE2'), ('CYS', 'SG'), ('ASP', 'OD1'), 
                               ('ASP', 'OD2'), ('GLU', 'OE1'), ('GLU', 'OE2'), ('SER', 'OG'), 
                               ('THR', 'OG1'), ('MET', 'SD')}
-        metals = self.protein.metals()
+        metal_symbols = {'ZN', 'CA', 'MG', 'NA', 'K', 'FE', 'CU', 'MN', 'CO', 'NI', 'CD', 'HG', 'PT', 'AU'}
 
 
         def rings_are_stacking(ring1, ring2):
@@ -270,11 +273,11 @@ class Interaction:
                 return 'disulfide_bond'
             
         # Metal Coordination
-        if atom1['residue_name'] in metals:
+        if atom1['atom_symbol'].upper() in metal_symbols:
             if res_at2 in coordinating_atoms or atom2['atom_name'] in {'O', 'OXT'} or atom2['residue_name'] == 'HOH' or atom2['atom_symbol'] == 'S':
                 return 'metal_coordination'
-            
-        if atom2['residue_name'] in metals:
+
+        if atom2['atom_symbol'].upper() in metal_symbols:
             if res_at1 in coordinating_atoms or atom1['atom_name'] in {'O', 'OXT'} or atom1['residue_name'] == 'HOH' or atom1['atom_symbol'] == 'S':
                 return 'metal_coordination'
 
@@ -346,7 +349,7 @@ class Interaction:
                     if ring1 and ring2 and rings_are_stacking(ring1, ring2):
 
                         if seen_pi_pi is not None:
-                            key = ring_pair_key(ring1, ring2)
+                            key = (min(a['atom_seq'] for a in ring1['atoms']), atom2['residue_seq'])
                             if key in seen_pi_pi:
                                 return None
                             seen_pi_pi.add(key)
@@ -371,7 +374,7 @@ class Interaction:
                     if ring1 and ring2 and rings_are_stacking(ring1, ring2):
                         
                         if seen_pi_pi is not None:
-                            key = ring_pair_key(ring1, ring2)
+                            key = (min(a['atom_seq'] for a in ring2['atoms']), atom1['residue_seq'])
                             if key in seen_pi_pi:
                                 return None
                             seen_pi_pi.add(key)
