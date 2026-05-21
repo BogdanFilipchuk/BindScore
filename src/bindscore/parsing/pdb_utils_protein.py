@@ -14,7 +14,7 @@ class Protein_Structure:
             pdb_data (str): The PDB data as a string.
         Functions:
             parse_pdb()                          - Parses the PDB data and extracts relevant information.
-            backbone()                           - Extracts the backbone atoms (N, CA, C, O).
+            backbone()                           - Extracts the backbone atoms (N, CA, C, O, OXT).
             side_chain()                         - Extracts the side chain atoms.
             ring_atoms()                         - Extracts the aromatic ring atoms (PHE, TYR, TRP, HIS).
             get_ring_centroid(ring_atoms)        - Calculates the centroid of a single ring.
@@ -31,6 +31,7 @@ class Protein_Structure:
 
         self.pdb_data  = pdb_data
         self.all_atoms = self.parse_pdb()
+        self.conect = self.parse_conect()
 
     def parse_pdb(self):
         '''
@@ -64,22 +65,22 @@ class Protein_Structure:
 
     def backbone(self):
         '''
-        Extracts the backbone atoms (N, CA, C, O) from the parsed PDB data.
+        Extracts the backbone atoms (N, CA, C, O, OXT) from the parsed PDB data.
         Returns:
             list: A list of dictionaries containing only the backbone atoms.
         '''
 
-        #Backbone atoms are N, CA, C, O
+        #Backbone atoms are N, CA, C, O, OXT
         backbone_atoms = []
         for atom in self.all_atoms:
-            if atom['type'] == 'ATOM' and atom['atom_name'] in {'N', 'CA', 'C', 'O'}:
+            if atom['type'] == 'ATOM' and atom['atom_name'] in {'N', 'CA', 'C', 'O', 'OXT'}:
                 backbone_atoms.append(atom)
 
         return backbone_atoms
 
     def side_chain(self):
         '''
-        Extracts the side chain atoms (every ATOM except backbone N, CA, C, O) from the parsed PDB data.
+        Extracts the side chain atoms (every ATOM except backbone N, CA, C, O, OXT) from the parsed PDB data.
         Returns:
             list: A list of dictionaries containing only the side chain atoms.
         '''
@@ -87,7 +88,7 @@ class Protein_Structure:
         # Side chain atoms are all atoms except the backbone atoms
         side_chain_atoms = []
         for atom in self.all_atoms:
-            if atom['type'] == 'ATOM' and atom['atom_name'] not in {'N', 'CA', 'C', 'O'}:
+            if atom['type'] == 'ATOM' and atom['atom_name'] not in {'N', 'CA', 'C', 'O', 'OXT'}:
                 side_chain_atoms.append(atom)
 
         return side_chain_atoms
@@ -210,6 +211,158 @@ class Protein_Structure:
 
         return rings
     
+    def parse_conect(self):
+        '''
+        Parses the CONECT records from the PDB data.
+        Returns:
+            dict: A dictionary mapping atom_seq to a list of connected atom_seqs.
+        '''
+
+        conect = {}
+        for line in self.pdb_data.splitlines():
+            if line.startswith('CONECT'):
+                atom_seq = line[6:11].strip()
+                bonded = [
+                    line[11:16].strip(),
+                    line[16:21].strip(),
+                    line[21:26].strip(),
+                    line[26:31].strip()
+                ]
+                bonded = [b for b in bonded if b]  # remove empty strings
+                if atom_seq not in conect:
+                    conect[atom_seq] = []
+                conect[atom_seq].extend(bonded)
+
+        return conect
+
+    def get_small_molecule_graph(self, small_molecule_id):
+        '''
+        Builds a connectivity graph for a specific small molecule using CONECT records.
+        Args:
+            small_molecule_id (str): The residue name of the small molecule.
+        Returns:
+            dict: A dictionary mapping atom_seq to a list of connected atom_seqs,
+                filtered to only atoms belonging to the small molecule.
+        '''
+
+        sm_atoms = self.get_small_molecule(small_molecule_id)
+        sm_atom_seqs = {atom['atom_seq'] for atom in sm_atoms}
+
+        graph = {atom['atom_seq']: [] for atom in sm_atoms}
+
+        for atom_seq in sm_atom_seqs:
+            if atom_seq in self.conect:
+                for bonded_seq in self.conect[atom_seq]:
+                    if bonded_seq in sm_atom_seqs:  # only keep bonds within the molecule
+                        graph[atom_seq].append(bonded_seq)
+
+        return graph
+    
+    def get_small_molecule_rings(self, graph):
+        '''
+        Finds all 5 and 6 membered cycles in a connectivity graph.
+        Args:
+            graph (dict): A dictionary mapping atom_seq to a list of connected atom_seqs.
+        Returns:
+            list: A list of sets, each containing the atom_seqs of a ring.
+        '''
+
+        rings = []
+
+        def dfs(start, current, path, visited):
+            for neighbor in graph[current]:
+                if neighbor == start and len(path) in {5, 6}:
+                    ring = frozenset(path)
+                    if ring not in rings:
+                        rings.append(ring)
+                elif neighbor not in visited and len(path) < 6:
+                    visited.add(neighbor)
+                    path.append(neighbor)
+                    dfs(start, neighbor, path, visited)
+                    path.pop()
+                    visited.remove(neighbor)
+
+        for start in graph:
+            dfs(start, start, [start], {start})
+
+        return rings
+    
+    def is_planar(self, ring_atoms, tolerance=0.1):
+        '''
+        Checks if a set of atoms is roughly coplanar by computing the ring normal
+        and measuring each atom's deviation from the plane.
+        Args:
+            ring_atoms (list): A list of atom dicts belonging to the ring.
+            tolerance (float): Maximum allowed deviation from the plane in Angstroms.
+        Returns:
+            bool: True if all atoms are within tolerance of the plane, False otherwise.
+        '''
+
+        # use first 3 atoms to define the plane
+        a1, a2, a3 = ring_atoms[0], ring_atoms[1], ring_atoms[2]
+
+        v1 = {'x': a2['x']-a1['x'], 'y': a2['y']-a1['y'], 'z': a2['z']-a1['z']}
+        v2 = {'x': a3['x']-a1['x'], 'y': a3['y']-a1['y'], 'z': a3['z']-a1['z']}
+
+        # normal vector of the plane
+        normal = {
+            'x': v1['y']*v2['z'] - v1['z']*v2['y'],
+            'y': v1['z']*v2['x'] - v1['x']*v2['z'],
+            'z': v1['x']*v2['y'] - v1['y']*v2['x']
+        }
+
+        magnitude = (normal['x']**2 + normal['y']**2 + normal['z']**2) ** 0.5
+
+        # check deviation of each remaining atom from the plane
+        for atom in ring_atoms[3:]:
+            dx = atom['x'] - a1['x']
+            dy = atom['y'] - a1['y']
+            dz = atom['z'] - a1['z']
+            deviation = abs(dx*normal['x'] + dy*normal['y'] + dz*normal['z']) / magnitude
+            if deviation > tolerance:
+                return False
+
+        return True
+
+    def get_small_molecule_aromatic_rings(self, small_molecule_id):
+        '''
+        Finds all aromatic rings in a small molecule by detecting planar 5 or 6
+        membered cycles using CONECT records.
+        Args:
+            small_molecule_id (str): The residue name of the small molecule.
+        Returns:
+            list: A list of dictionaries in the same format as get_rings, each containing:
+                residue_name, residue_seq, chain, atoms, centroid, normal.
+        '''
+
+        sm_atoms = self.get_small_molecule(small_molecule_id)
+        atom_seq_to_atom = {atom['atom_seq']: atom for atom in sm_atoms}
+
+        graph = self.get_small_molecule_graph(small_molecule_id)
+        cycles = self.get_small_molecule_rings(graph)
+
+        aromatic_rings = []
+        for cycle in cycles:
+            ring_atoms = [atom_seq_to_atom[seq] for seq in cycle]
+
+            # filter to only C, N, O atoms
+            if not all(atom['atom_symbol'] in {'C', 'N', 'O'} for atom in ring_atoms):
+                continue
+
+            if not self.is_planar(ring_atoms):
+                continue
+
+            aromatic_rings.append({
+                'residue_name': ring_atoms[0]['residue_name'],
+                'residue_seq' : ring_atoms[0]['residue_seq'],
+                'chain'       : ring_atoms[0]['chain'],
+                'atoms'       : ring_atoms,
+                'centroid'    : self.get_ring_centroid(ring_atoms),
+                'normal'      : self.get_ring_normal(ring_atoms)
+            })
+
+        return aromatic_rings
+
     def hetero_atoms(self):
         '''
         Extracts the hetero atoms (HETATM records) from the parsed PDB data.
@@ -299,6 +452,14 @@ class Protein_Structure:
                 residue_atoms.append(atom)
 
         return residue_atoms
+    
+    def metals(self):
+        metal_symbols = {'ZN', 'CA', 'MG', 'NA', 'K', 'FE', 'CU', 'MN', 'CO', 'NI', 'CD', 'HG', 'PT', 'AU'}
+        metals = set()
+        for atom in self.all_atoms:
+            if atom['type'] == 'HETATM' and atom['atom_symbol'].upper() in metal_symbols:
+                metals.add(atom['residue_name'])
+        return metals
     
     def get_entity(self, entity_id):
         '''
