@@ -23,17 +23,15 @@ Therefore, the pipeline is:
 
 Here are the references to key equations referenced from thepaper:
   Eq. (2): U_rest = (K/2) * Σ_i (R_i - R̄_i)²      [the spring potential]
-  Eq. (3): FEP estimator via Zwanzig formula
+  Eq. (3): FEP estimation
   Eq. (4): -T*ΔS_conf_bind = min(ΔG_RR^bound) - min(ΔG_RR^unbound)
   Eq. (8): adds cage correction for 1M standard state
 ------------------
-
 """
 # Note on the units:
 # OpenMM works in kJ/mol and nm.
 # The reference Reference paper (Singh and Warshel) uses kcal/mol and Å.
 # Conversions: 1 kcal = 4.184 kJ  |  1 nm = 10 Å  |  so 1 kcal/mol/Å² = 418.4 kJ/mol/nm²
-"TODO : Set unit conversions ?"
 
 import openmm as mm
 import openmm.app as app
@@ -43,22 +41,21 @@ import math
 
 
 # =============================================================================
-# TUNABLE PARAMETERS — collected here for easy adjustment
+# TUNABLE PARAMETERS
 # =============================================================================
 
-# --- harmonic_restraint schedule ---
-K_INITIAL      = 10.0    # kcal/mol/Å²  Starting (stiff) harmonic constraint constant.
-                          # Must be large enough that the ligand is nearly frozen.
-                          # Reference paper uses 10.0. Increasing → safer but slower FEP.
+# --- harmonic_restraint  ---
+K_INITIAL      = 10.0     # kcal/mol/Å²  Starting (stiff) harmonic constraint constant.
+                          # Must be large enough that the ligand is nearly frozen (see paper).
+                          # Reference paper uses 10.0. Increasing it will induce a safer but slower FEP simulation.
 
-K_FINAL        = 0.003   # kcal/mol/Å²  Final (loose) sharmonic constraint pring constant.
+K_FINAL        = 0.003    # kcal/mol/Å²  Final (loose) sharmonic constraint pring constant.
                           # Should be small enough that the ligand moves freely.
-                          # Reference Reference paper uses 0.003. Decreasing → more complete release
-                          # but harder to converge.
+                          # Reference Reference paper uses 0.003. Decreasing → more complete release but harder to converge.
 
-N_WINDOWS      = 41      # Number of FEP lambda windows between K_INITIAL and K_FINAL.
-                          # Reference paper uses 41. More windows → better overlap between
-                          # adjacent states → more accurate ΔG, but longer runtime.
+N_WINDOWS      = 41      # Number of FEP windows between K_INITIAL and K_FINAL.
+                          # Reference paper uses 41. More windows → better overlap between adjacent states → more accurate ΔG, but longer runtime.
+
 
 SIM_TIME_PS    = 40      # Simulation time per window in picoseconds.
                           # Reference paper uses 40 ps. Increasing → better sampling per window.
@@ -68,10 +65,9 @@ TIMESTEP_FS    = 1.0     # MD timestep in femtoseconds. Reference paper uses 1 f
 
 TEMPERATURE_K  = 300     # Simulation temperature in Kelvin. Reference paper uses 300 K.
 
-# --- Sampling of reference coordinates ---
+# --- Sampling / reference coordinates ---
 N_REF_SETS     = 8       # Number of different reference coordinate sets (R̄ sets).
-                          # Reference paper uses 8. More sets → better chance of finding the
-                          # true minimum (which removes enthalpic contamination).
+                          # Reference paper uses 8. More sets → better chance of finding the true minimum (which removes enthalpic contamination).
                           # Each set = one full FEP ladder, so this multiplies runtime.
 
 SPACING_PS     = 5       # How far apart (in ps) to space the reference snapshots.
@@ -93,21 +89,17 @@ V0             = 1660.0  # Å³  Molar volume = 1 litre / Avogadro's number.
 kB_KCAL        = 0.001987  # Boltzmann constant in kcal/mol/K
 RT_KCAL        = kB_KCAL * TEMPERATURE_K  # thermal energy in kcal/mol at 300K ≈ 0.596
 
+#SETTING UP THE HARMONIC RESTRAIN
 
-# =============================================================================
-# FUNCTION 1 — ADD HARMONIC CARTESIAN harmonic_restraintS
-# =============================================================================
-
-def add_cartesian_harmonic_restraint_force(system, positions, atom_indices, K_kcal) -> mm.CustomExternalForce:   
+def add_cartesian_harmonic_restraint_force(system:mm.System, positions, atom_indices:list[int], K_kcal:float) -> mm.CustomExternalForce:   
     """
-    Attaches a harmonic restrain to each ligand atom, anchored at its current position.( Equation (2) of the paper). This is an essential step in realising the RR-FEP method.
-
+    Attaches a harmonic restrain to each atom, anchored at its current position.
     R̄_i are the reference (anchor) coordinates and K is simillar to a spring constant (Large K → ligand is frozen. K → 0 → ligand is free.)
 
     Parameters
     ----------
-    system       : OpenMM System object (will be modified in-place)
-    positions    : current atom positions (OpenMM Quantity with units)
+    system       : OpenMM System object 
+    positions    : current atom positions
     atom_indices : list of int, indices of ligand atoms to restrain
     K_kcal       : float, spring constant in kcal/mol/Å²
 
@@ -125,39 +117,43 @@ def add_cartesian_harmonic_restraint_force(system, positions, atom_indices, K_kc
     # Factor 100:   Å² → nm²  (1 nm = 10 Å, so 1/Å² = 100/nm²)
     K_kJ_nm = K_kcal * 418.4
 
-    # Define the energy expression as a string.
-    # OpenMM evaluates this per particle - so x,y,z are current coords (in nm),
-    # x0,y0,z0 are the per-particle reference point coords, will be set below.
-    # K is a global parameter so we can change it during the simulation without rebuilding the force object.  ## TO DO : add an ability to change K (!!!!)
-    harmonic_restraint_force = mm.CustomExternalForce("0.5 * K * ((x-x0)^2 + (y-y0)^2 + (z-z0)^2)")   #That's some voodoo magic here
+    # First, a force object is initialized. The harmonic energy equation is passed as a string. It will be later compiled and will "recognize" the parameters which we set later. 
+    #  OpenMM evaluates it per particle - so x,y,z are current coords (in nm). 
+    harmonic_restraint_force = mm.CustomExternalForce("0.5 * K * ((x-x0)^2 + (y-y0)^2 + (z-z0)^2)")  
 
-    # K is global: one value shared by all restrained atoms.
-    # We add it as a global parameter so simulation.context.setParameter("K", ...) can update it on-the-fly during the FEP ladder.
+    # Adding force parameters to the Context object of the simuation - it is thus tuned to our RR needs. OpenMM documentation: 
+    # "A Context stores the complete state of a simulation. More specifically, it includes: 
+    # 1.The current time
+    # 2.The position of each particle
+    # 3.The velocity of each particle
+    # 4.The values of configurable parameters defined by Force objects in the System"
+
+    # Adding K as a global parameter: one value shared by all restrained atoms.
+    # We add it as a global parameter so simulation.context.setParameter("K", ...) can update it on the go.
     harmonic_restraint_force.addGlobalParameter("K", K_kJ_nm)
 
-    # x0, y0, z0 are anchor point coordinate of each particle with respect to whom the harmonic potential will be calculate.
-    # These are set once ig and do not change during a run. Honestly do not know what that
-    harmonic_restraint_force.addPerParticleParameter("x0")
+    # Adding x0, y0, z0 anchor point coordinates mentioned before. 
     harmonic_restraint_force.addPerParticleParameter("y0")
     harmonic_restraint_force.addPerParticleParameter("z0")
+    harmonic_restraint_force.addPerParticleParameter("x0")
 
     # Register each ligand atom with its anchor coordinates
     for idx in atom_indices:
-        # Extract position in nanometers (OpenMM's internal length unit)
+        # Extracting position in nanometers - value_in_unit is a method of the Quantity class which converts the value to a python float.
         pos = positions[idx].value_in_unit(unit.nanometers)
-        # pos is [x, y, z] in nm — these become the fixed anchor R̄_i
+        # pos are [x, y, z] — these become the fixed anchor R̄_i
         harmonic_restraint_force.addParticle(idx, pos)
 
-    # Add the harmonic_restraint to the system 
+    # Add the harmonic_restraint_force to the system 
     system.addForce(harmonic_restraint_force)
 
     return harmonic_restraint_force   # return so caller can call setParameter("K", ...) later
 
 
-# FUNCTION 2 — RUNNING THE FEP LADDER (releasing K from large to small) (God help me)
+#RUNNING THE FEP (releasing K from large to small)
 
 
-def run_rr_fep(system, topology, positions, atom_indices, K_initial=K_INITIAL, K_final=K_FINAL, n_windows=N_WINDOWS, sim_time_ps=SIM_TIME_PS):
+def run_rr_fep(system:mm.System, topology, positions, atom_indices, K_initial=K_INITIAL, K_final=K_FINAL, n_windows=N_WINDOWS, sim_time_ps=SIM_TIME_PS):
     """
     Runs the harmonic_restraint_force Release FEP: gradually reduces K from K_initial to
     K_final in `n_windows` steps, computing the free energy change at each
@@ -174,8 +170,7 @@ def run_rr_fep(system, topology, positions, atom_indices, K_initial=K_INITIAL, K
 
     Parameters
     ----------
-    system       : OpenMM System (should already have harmonic_restraint_forces added via
-                   add_cartesian_harmonic_restraints before calling this)
+    system       : OpenMM System (should already have harmonic_restraint_forces added via dd_cartesian_harmonic_restraints before calling this)
     topology     : OpenMM Topology
     positions    : initial positions (OpenMM Quantity)
     atom_indices : list of int, ligand atom indices (for reference only here)
@@ -186,16 +181,12 @@ def run_rr_fep(system, topology, positions, atom_indices, K_initial=K_INITIAL, K
 
     Returns
     -------
-    dG_RR : float, total free energy of harmonic_restraint_force release in kcal/mol
-            This equals -T*ΔS when computed at the optimal R̄.
+    dG_RR : float, total free energy of harmonic_restraint_force release in kcal/mol. This equals -T*ΔS when computed at the optimal R̄.
     """
 
-    # Build the K schedule: n_windows values from K_initial down to K_final.
-    # Each consecutive pair (K_m, K_{m+1}) defines one FEP perturbation step.
-    # NOTE: the Reference paper uses 4 separate "stages" with different spacing to ensure
-    # good overlap. A simple linspace is a reasonable approximation; for
-    # production runs consider log-spacing or the Reference paper's 4-stage schedule.
-    K_values = np.linspace(K_initial, K_final, n_windows)
+    # We build the K schedule for the simulation: n windows values from K_initial down to K_final. Each pair (K_m, K_{m+1}) defines one FEP perturbation step.
+    # NOTE: the Reference paper uses 4 separate "stages" with different spacing to ensure good overlap. A simple linspace is a reasonable approximation; for production runs consider log-spacing or the Reference paper's 4-stage schedule.
+    K_values = np.linspace(K_initial, K_final, n_windows) # Returns a np array with n floats equally spaced from initial to final
 
     # --- SET UP INTEGRATOR ---
     # Langevin dynamics at constant temperature.
@@ -218,16 +209,18 @@ def run_rr_fep(system, topology, positions, atom_indices, K_initial=K_INITIAL, K
 
     simulation.context.setPositions(positions)
 
-    # Quick energy minimisation to remove any clashes before starting FEP
+    #Energy minimisation to remove any clashes before starting FEP. Insures a smooth simulation in case the positions we pass in parameters have some clashing atoms, etc.
     simulation.minimizeEnergy()
 
     # Steps per window: sim_time_ps / timestep_ps
     steps_per_window = int(sim_time_ps / (TIMESTEP_FS * 0.001))
 
     # --- FEP LADDER ---
-    dG_values = []  # will collect ΔΔG for each window
+    dG_values:list = []  # will collect ΔΔG for each window
 
     for m, (K_curr, K_next) in enumerate(zip(K_values[:-1], K_values[1:])):
+
+        print(f"      window {m+1}/{len(K_values)-1}  K={K_curr:.4f}", end="\r", flush=True)
 
         # ── Step A: set current spring constant and equilibrate ──
         # Convert K from kcal/mol/Å² → kJ/mol/nm² for OpenMM
@@ -346,7 +339,7 @@ def compute_configurational_entropy(system, topology, positions_bound,positions_
         # Passing the same positions every time gives the same R̄ (not ideal);
         # replace `positions_bound` with `snapshot_list_bound[ref_set]` in
         # production.
-        harmonic_restraint_force_b = add_cartesian_harmonic_restraints(system, positions_bound, ligand_indices, K_kcal=K_INITIAL)
+        harmonic_restraint_force_b = add_cartesian_harmonic_restraint_force(system, positions_bound, ligand_indices, K_kcal=K_INITIAL)
 
         # Run the FEP ladder: K goes from K_INITIAL → K_FINAL
         # Returns ΔG_RR for this reference set in kcal/mol
@@ -362,7 +355,7 @@ def compute_configurational_entropy(system, topology, positions_bound,positions_
         # Exactly the same procedure but with the ligand in a water box.
         # The ligand has MORE freedom here, so releasing the springs costs more,
         # giving a larger (more negative) ΔG_RR.
-        harmonic_restraint_ub = add_cartesian_harmonic_restraints(
+        harmonic_restraint_ub = add_cartesian_harmonic_restraint_force(
             system, positions_unbound, ligand_indices, K_kcal=K_INITIAL
         )
         dG_ub = run_rr_fep(system, topology, positions_unbound, ligand_indices)
