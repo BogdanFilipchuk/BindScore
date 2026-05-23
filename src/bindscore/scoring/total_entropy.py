@@ -141,7 +141,7 @@ def compute_total_entropy(
         ps_b_a = protein_solvent_entropy.ds_bulk(R_a, SIE_a)
         ps_i_b = protein_solvent_entropy.ds_interfacial(R_b, T, SIE_b)
         ps_b_b = protein_solvent_entropy.ds_bulk(R_b, SIE_b)
-        minusT_ps = (ps_i_a + ps_b_a + ps_i_b + ps_b_b)*T/1000.0  # convert from J/mol to kJ/mol
+        minusT_ps = -(ps_i_a + ps_b_a + ps_i_b + ps_b_b)*T/1000.0  # convert from J/mol to kJ/mol
     except Exception as exc:
         warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
         minusT_ps = 0.0
