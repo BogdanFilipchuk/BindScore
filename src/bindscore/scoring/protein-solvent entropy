@@ -42,7 +42,7 @@ import argparse
 import math
 import sys
 from pathlib import Path
-sys.path.append("C:/Users/vande/ppchem/BindScore/src/bindscore/pdb_file_treatment")
+sys.path.append("src/bindscore/pdb_file_treatment")
 import protein_radius_estimation as radius_estimation 
 
 try:
@@ -321,7 +321,7 @@ def main():
     parser.add_argument(
         "pdb",
         nargs="?",
-        default="C:/Users/vande/ppchem/BindScore/6PYH.pdb",
+        default=Path("tests/test_pdb_files/1A2B.pdb"),
         help="Path to the PDB file (.pdb)"
     )
     parser.add_argument(
