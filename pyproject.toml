@@ -10,6 +10,7 @@ dependencies = [
     "requests",
     "biopython",
     "numpy",
+    "gemmi",
     "freesasa",
     "pymol-open-source",
     "pathlib",
