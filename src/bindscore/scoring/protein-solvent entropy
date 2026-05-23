@@ -173,7 +173,7 @@ def interfacial_to_volume_ratio(R: float) -> float:
     return 4.0 * R_H2O / (R*1e-10)
 
 
-def dG_solute_water(R: float, T: float) -> float:
+#def dG_solute_water(R: float, T: float) -> float:
     """
     Gibbs free energy of the solute-water interface (J/mol) — Eq. 5.
     ΔG_sw = ΔG_DDAA(T) · (4·r_H₂O/R) · N_HB
@@ -181,7 +181,7 @@ def dG_solute_water(R: float, T: float) -> float:
     return dG_DDAA(T) * interfacial_to_volume_ratio(R) * N_HB
 
 
-def dG_hydration(R: float, T: float) -> float:
+#def dG_hydration(R: float, T: float) -> float:
     """
     Total hydration free energy (J/mol) — Eq. 6.
     ΔG_hyd = ΔG_water-water + 8·ΔG_DDAA(T)·r_H₂O / R
@@ -212,7 +212,7 @@ def dS_bulk(R: float) -> float:
     return DS_DDAA * (1.0 - ratio)
 
 
-def dS_total(R: float, T: float) -> float:
+#def dS_total(R: float, T: float) -> float:
     """
     Net entropy change of water upon protein solvation (J mol⁻¹ K⁻¹).
     ΔS_total = ΔS_interfacial − ΔS_bulk
@@ -220,7 +220,7 @@ def dS_total(R: float, T: float) -> float:
     return dS_interfacial(R, T) - dS_bulk(R)
 
 
-def dH_solvation(R: float, T: float) -> float:
+#def dH_solvation(R: float, T: float) -> float:
     """
     Enthalpy change of solvation (J/mol), from ΔG = ΔH − T·ΔS:
         ΔH = ΔG_solute-water + T·ΔS_interfacial
@@ -245,17 +245,17 @@ def solvation_regime(R: float, T: float) -> str:
 def print_results(name: str, sequence: str, radius_m: float, T: float) -> None:
     R   = radius_m
     Rc  = critical_radius(T)
-    dG  = dG_DDAA(T)
+    #dG  = dG_DDAA(T)
 
     # Pre-compute all quantities
     ratio   = interfacial_to_volume_ratio(R)
-    dGsw    = dG_solute_water(R, T)
-    dGhyd   = dG_hydration(R, T)
+    #dGsw    = dG_solute_water(R, T)
+    #dGhyd   = dG_hydration(R, T)
     dSint   = dS_interfacial(R, T)
     dSblk   = dS_bulk(R)
-    dStot   = dS_total(R, T)
-    dHsolv  = dH_solvation(R, T)
-    neg_TdS = -T * dStot
+    #dStot   = dS_total(R, T)
+    #dHsolv  = dH_solvation(R, T)
+    #neg_TdS = -T * dStot
     regime  = solvation_regime(R, T)
 
     w = 52   # column width
@@ -278,10 +278,10 @@ def print_results(name: str, sequence: str, radius_m: float, T: float) -> None:
     row("Sphere-equivalent radius R", f"{R * 0.1:.3f}",  "nm")
 
     print("\n── Water constants  (Sun 2022, 0.1 MPa) ───────────")
-    row("ΔH_DDAA  (van't Hoff, Raman)", f"{DH_DDAA / 1e3:.2f}", "kJ/mol")
+    #row("ΔH_DDAA  (van't Hoff, Raman)", f"{DH_DDAA / 1e3:.2f}", "kJ/mol")
     row("ΔS_DDAA  (van't Hoff, Raman)", f"{DS_DDAA:.2f}",       "J/(mol·K)")
-    row("ΔG_DDAA  at given T",          f"{dG / 1e3:.4f}",      "kJ/mol")
-    row("ΔG_water-water",               f"{DG_WATER_WATER/1e3:.4f}", "kJ/mol")
+    #row("ΔG_DDAA  at given T",          f"{dG / 1e3:.4f}",      "kJ/mol")
+    #row("ΔG_water-water",               f"{DG_WATER_WATER/1e3:.4f}", "kJ/mol")
     row("Critical radius Rc",           f"{Rc * 1e10:.2f}", "Å")
 
     print("\n── Solvation geometry ─────────────────────────────")
@@ -291,14 +291,14 @@ def print_results(name: str, sequence: str, radius_m: float, T: float) -> None:
     print("\n── Entropy decomposition ──────────────────────────")
     row("ΔS_interfacial  (DA bond gain)",  f"{dSint:+.4f}", "J/(mol·K)")
     row("ΔS_bulk         (DDAA order cost)", f"{dSblk:+.4f}", "J/(mol·K)")
-    row("ΔS_total        (net, water)",    f"{dStot:+.4f}", "J/(mol·K)")
-    row("−T·ΔS_total",                    f"{neg_TdS/1e3:+.4f}", "kJ/mol")
+    #row("ΔS_total        (net, water)",    f"{dStot:+.4f}", "J/(mol·K)")
+    #row("−T·ΔS_total",                    f"{neg_TdS/1e3:+.4f}", "kJ/mol")
 
-    print("\n── Free energy & enthalpy ─────────────────────────")
-    row("ΔG_solute-water  (Eq. 5)",   f"{dGsw  / 1e3:+.4f}", "kJ/mol")
-    row("ΔG_hydration     (Eq. 6)",   f"{dGhyd / 1e3:+.4f}", "kJ/mol")
-    row("ΔH_solvation",              f"{dHsolv/ 1e3:+.4f}", "kJ/mol")
-    row("ΔG = ΔH − T·ΔS  (check)",   f"{(dHsolv + neg_TdS)/1e3:+.4f}", "kJ/mol")
+    #print("\n── Free energy & enthalpy ─────────────────────────")
+    #row("ΔG_solute-water  (Eq. 5)",   f"{dGsw  / 1e3:+.4f}", "kJ/mol")
+    #row("ΔG_hydration     (Eq. 6)",   f"{dGhyd / 1e3:+.4f}", "kJ/mol")
+    #row("ΔH_solvation",              f"{dHsolv/ 1e3:+.4f}", "kJ/mol")
+    #row("ΔG = ΔH − T·ΔS  (check)",   f"{(dHsolv + neg_TdS)/1e3:+.4f}", "kJ/mol")
 
     print()
     print("═" * w)
@@ -321,7 +321,7 @@ def main():
     parser.add_argument(
         "pdb",
         nargs="?",
-        default="C:/Users/vande/ppchem/BindScore/1A2B.pdb",
+        default="C:/Users/vande/ppchem/BindScore/6PYH.pdb",
         help="Path to the PDB file (.pdb)"
     )
     parser.add_argument(
