@@ -50,8 +50,8 @@ from . import hydrophobic
 from . import sidechain
 from . import backbone
 from . import protein_solvent_entropy
-sys.path.append("src/bindscore/pdb_file_treatment")
-import protein_radius_estimation as radius_estimation 
+from ..pdb_file_treatment import protein_radius_estimation as radius_estimation
+
 
 
 @dataclass
@@ -103,43 +103,45 @@ def compute_total_entropy(
 
     try:
         tr = trans_rot.compute(complex_pdb, chain_a, chain_b, T=T)
-        minusT_tr = tr.total
+        minusT_tr = tr.total*4.186  # convert from kcal/mol to kJ/mol
     except Exception as exc:
         warnings.warn(f"trans_rot module failed: {exc}; contributing 0.")
         minusT_tr = 0.0
 
     try:
         hp = hydrophobic.compute(complex_pdb, chain_a, chain_b)
-        minusT_hp = hp.minusT_deltaS
+        minusT_hp = hp.minusT_deltaS*4.186  # convert from kcal/mol to kJ/mol
     except Exception as exc:
         warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
         minusT_hp = 0.0
 
     try:
         sc = sidechain.compute(complex_pdb, chain_a, chain_b)
-        minusT_sc = sc.minusT_deltaS
+        minusT_sc = sc.minusT_deltaS*4.186  # convert from kcal/mol to kJ/mol
     except Exception as exc:
         warnings.warn(f"sidechain module failed: {exc}; contributing 0.")
         minusT_sc = 0.0
 
     try:
         bb = backbone.compute(complex_pdb, chain_a, chain_b, T=T)
-        minusT_bb = bb.minusT_deltaS
+        minusT_bb = bb.minusT_deltaS*4.186  # convert from kcal/mol to J/mol
     except Exception as exc:
         warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
         minusT_bb = 0.0
     try:
         coords_a = radius_estimation.load_atoms(complex_pdb, chain_id=chain_a)
         centroid_a = radius_estimation.find_centroid(coords_a)
-        R_a = radius_estimation.estimate_radius(coords_a, centroid_a)
+        R_a, _ = radius_estimation.estimate_radius(coords_a, centroid_a)
         coords_b = radius_estimation.load_atoms(complex_pdb, chain_id=chain_b)
         centroid_b = radius_estimation.find_centroid(coords_b)
-        R_b = radius_estimation.estimate_radius(coords_b, centroid_b)
-        ps_i_a = protein_solvent_entropy.solvent_interfacial_entropy(R_a, T)
-        ps_b_a = protein_solvent_entropy.solvent_bulk_entropy(R_a)
-        ps_i_b = protein_solvent_entropy.solvent_interfacial_entropy(R_b, T)
-        ps_b_b = protein_solvent_entropy.solvent_bulk_entropy(R_b)
-        minusT_ps = ps_i_a + ps_b_a + ps_i_b + ps_b_b
+        R_b, _ = radius_estimation.estimate_radius(coords_b, centroid_b)
+        SIE_a= protein_solvent_entropy._interfacial_fraction(R_a)
+        SIE_b= protein_solvent_entropy._interfacial_fraction(R_b)
+        ps_i_a = protein_solvent_entropy.ds_interfacial(R_a, T, SIE_a)
+        ps_b_a = protein_solvent_entropy.ds_bulk(R_a, SIE_a)
+        ps_i_b = protein_solvent_entropy.ds_interfacial(R_b, T, SIE_b)
+        ps_b_b = protein_solvent_entropy.ds_bulk(R_b, SIE_b)
+        minusT_ps = (ps_i_a + ps_b_a + ps_i_b + ps_b_b)*T/1000.0  # convert from J/mol to kJ/mol
     except Exception as exc:
         warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
         minusT_ps = 0.0
