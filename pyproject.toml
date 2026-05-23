@@ -10,6 +10,7 @@ dependencies = [
     "requests",
     "biopython",
     "numpy",
+    "gemmi",
     "freesasa",
     "streamlit", 
     "matplotlib",
@@ -19,8 +20,17 @@ dependencies = [
     =======
     "pymol-open-source",
     "pathlib",
-    "openmm"
+    "openmm",
+    "prody>=2.4",        # ← ADD: ANM/NMA for backbone.py
+    "scipy>=1.10",       # ← ADD: stable symmetric matrix diagonalisation
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bindscore"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+extraPaths = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
