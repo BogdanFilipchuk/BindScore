@@ -135,10 +135,10 @@ def compute_total_entropy(
         coords_b = radius_estimation.load_atoms(complex_pdb, chain_id=chain_b)
         centroid_b = radius_estimation.find_centroid(coords_b)
         R_b = radius_estimation.estimate_radius(coords_b, centroid_b)
-        ps_i_a = protein_solvent_entropy.dS_interfacial(R_a,T)
-        ps_b_a = protein_solvent_entropy.dS_bulk(R_a)
-        ps_i_b = protein_solvent_entropy.dS_interfacial(R_b,T)
-        ps_b_b = protein_solvent_entropy.dS_bulk(R_b)
+        ps_i_a = protein_solvent_entropy.solvent_interfacial_entropy(R_a, T)
+        ps_b_a = protein_solvent_entropy.solvent_bulk_entropy(R_a)
+        ps_i_b = protein_solvent_entropy.solvent_interfacial_entropy(R_b, T)
+        ps_b_b = protein_solvent_entropy.solvent_bulk_entropy(R_b)
         minusT_ps = ps_i_a + ps_b_a + ps_i_b + ps_b_b
     except Exception as exc:
         warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
