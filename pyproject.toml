@@ -8,13 +8,23 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
     "requests",
+    "gemmi",
     "biopython",
     "numpy",
     "freesasa",
     "pymol-open-source",
     "pathlib",
-    "openmm"
+    "openmm",
+    "prody>=2.4",        # ← ADD: ANM/NMA for backbone.py
+    "scipy>=1.10",       # ← ADD: stable symmetric matrix diagonalisation
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bindscore"]
+packages = ["src/bindscore", "src/bindscore/binding_entropy"]   # ← ADD the subpackage
+
+[tool.pyright]
+pythonVersion = "3.10"
+extraPaths = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
