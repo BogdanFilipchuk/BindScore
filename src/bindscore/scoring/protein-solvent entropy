@@ -42,7 +42,8 @@ import argparse
 import math
 import sys
 from pathlib import Path
-
+sys.path.append("C:/Users/vande/ppchem/BindScore/src/bindscore/pdb_file_treatment")
+import protein_radius_estimation as radius_estimation 
 
 try:
     from Bio.PDB import PDBParser, PPBuilder
@@ -52,7 +53,6 @@ except ImportError:
         "ERROR: Biopython is required.\n"
         "Install it with:  pip install biopython"
     )
-
 # ══════════════════════════════════════════════════════════════════════════════
 #  Fixed water constants  (Sun 2022, all at 293 K / 0.1 MPa unless noted)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -135,12 +135,9 @@ def parse_protein(pdb_path: str, chain_id: str | None = None) -> tuple[str, str,
     mw_gmol  = analysis.molecular_weight()   # g/mol
     mw_kgmol = mw_gmol * 1e-3               # kg/mol
 
-    # Volume of one molecule (m³)
-    volume_per_molecule = mw_kgmol / (AVOGADRO * PROTEIN_DENSITY)
-
-    # Sphere-equivalent radius (m)
-    radius = (3.0 * volume_per_molecule / (4.0 * math.pi)) ** (1.0 / 3.0)
-
+    coords = radius_estimation.load_atoms(pdb_path,chain_id=chain_id)
+    centroid = radius_estimation.find_centroid(coords)
+    radius = radius_estimation.estimate_radius(coords, centroid)[0]
     return name, sequence, radius
 
 
@@ -173,7 +170,7 @@ def interfacial_to_volume_ratio(R: float) -> float:
     Ratio of interfacial water molecules to total water volume for a sphere
     of radius R (m):   ratio = 4·r_H₂O / R   (paper Sec 3)
     """
-    return 4.0 * R_H2O / R
+    return 4.0 * R_H2O / (R*1e-10)
 
 
 def dG_solute_water(R: float, T: float) -> float:
@@ -277,8 +274,8 @@ def print_results(name: str, sequence: str, radius_m: float, T: float) -> None:
     row("Temperature",                f"{T:.1f}", "K")
 
     print("\n── Protein geometry ───────────────────────────────")
-    row("Sphere-equivalent radius R", f"{R * 1e10:.2f}", "Å")
-    row("Sphere-equivalent radius R", f"{R * 1e9:.3f}",  "nm")
+    row("Sphere-equivalent radius R", f"{R:.2f}", "Å")
+    row("Sphere-equivalent radius R", f"{R * 0.1:.3f}",  "nm")
 
     print("\n── Water constants  (Sun 2022, 0.1 MPa) ───────────")
     row("ΔH_DDAA  (van't Hoff, Raman)", f"{DH_DDAA / 1e3:.2f}", "kJ/mol")
@@ -323,6 +320,8 @@ def main():
     )
     parser.add_argument(
         "pdb",
+        nargs="?",
+        default="C:/Users/vande/ppchem/BindScore/1A2B.pdb",
         help="Path to the PDB file (.pdb)"
     )
     parser.add_argument(
