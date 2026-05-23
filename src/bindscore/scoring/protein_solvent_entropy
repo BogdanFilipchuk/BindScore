@@ -38,12 +38,11 @@ Usage
     python protein_solvation_entropy.py myprotein.pdb --temp 310 --chain A
 """
 
-import argparse
 import math
 import sys
 from pathlib import Path
 sys.path.append("src/bindscore/pdb_file_treatment")
-import protein_radius_estimation as radius_estimation 
+import bindscore.pdb_file_treatment.protein_radius_estimation as radius_estimation 
 #aaaaaaaaaaaaaaaaaaaaaaaaaaaa
 try:
     from Bio.PDB import PDBParser, PPBuilder
@@ -305,44 +304,3 @@ def print_results(name: str, sequence: str, radius_m: float, T: float) -> None:
     print()
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  CLI
-# ══════════════════════════════════════════════════════════════════════════════
-
-def main():
-    parser = argparse.ArgumentParser(
-        description=(
-            "Calculate solute–solvent entropy for a protein in water.\n"
-            "The protein is read from a PDB file and treated as a sphere.\n"
-            "Water constants are fixed from Sun (2022) Molecules 27, 7009."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "pdb",
-        nargs="?",
-        default=Path("tests/test_pdb_files/6PYH.pdb"),
-        help="Path to the PDB file (.pdb)"
-    )
-    parser.add_argument(
-        "--temp", "-t",
-        type=float,
-        default=293.0,
-        metavar="K",
-        help="Temperature in Kelvin (default: 293.0 K)"
-    )
-    parser.add_argument(
-        "--chain", "-c",
-        default=None,
-        metavar="ID",
-        help="Only use residues from this chain (e.g. A). Default: all chains."
-    )
-
-    args = parser.parse_args()
-
-    name, sequence, radius = parse_protein(args.pdb, args.chain)
-    print_results(name, sequence, radius, args.temp)
-
-
-if __name__ == "__main__":
-    main()

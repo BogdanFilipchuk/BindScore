@@ -14,6 +14,12 @@ test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "6PYH.
 myprotein = Protein_Structure(fetch.fetch_pdb_data(test_pdb_path))
 
 "Calculating the entropy result"
-total_entropy_result = compute_total_entropy(test_pdb_path,"A","D")
+total_entropy_result = compute_total_entropy(test_pdb_path,"A","D", HYDROPHOBIC_SETTING = "SASA")
+
+print(f'The entropy value calculated with SASA for {myprotein.get_ID()} is {total_entropy_result} kcal/mol' )
+
+
+"Calculating the entropy result"
+total_entropy_result = compute_total_entropy(test_pdb_path,"A","D",HYDROPHOBIC_SETTING="Sun")
 
 print(f'The entropy value calculated for {myprotein.get_ID()} is {total_entropy_result} kcal/mol' )

@@ -69,6 +69,7 @@ def compute_total_entropy(
     chain_b: str,
     T: float = 300.0,
     return_breakdown: bool = False,
+    HYDROPHOBIC_SETTING: str = "SASA",
 ) -> float | EntropySummary:
     """
     Compute the total -T*Delta_S of binding (kcal/mol).
