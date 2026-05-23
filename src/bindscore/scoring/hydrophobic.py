@@ -59,7 +59,7 @@ class HydrophobicResult:
     """Result of the SASA-based hydrophobic entropy estimate."""
     delta_nonpolar_sasa: float   # A^2 buried (positive = surface lost on binding)
     coefficient: float           # kcal/mol/A^2 used
-    minusT_deltaS: float         # kcal/mol (typically negative = favourable)
+    deltaS: float                # J/(mol·K) — negative = favourable
 
 
 # -----------------------------------------------------------------------------
@@ -108,14 +108,13 @@ def _nonpolar_sasa(pdb_path: str) -> float:
 # Public entry point
 # -----------------------------------------------------------------------------
 
-def compute(
-    complex_pdb: str,
-    chain_a: str,
-    chain_b: str,
-    coefficient: float = _DEFAULT_HYDROPHOBIC_COEFF,
-) -> HydrophobicResult:
+def compute(complex_pdb: str, chain_a: str, chain_b: str, T: float = 300.0, coefficient: float = _DEFAULT_HYDROPHOBIC_COEFF) -> HydrophobicResult:
     """
-    Estimate -T*Delta_S_hydrophobic from the change in non-polar SASA.
+    Function estimating -T*Delta_S_hydrophobic from the change in non-polar SASA.
+
+    Arguments
+    -----------
+    sada    
 
     Calculation
     -----------
@@ -136,6 +135,10 @@ def compute(
         kcal/mol/A^2. Default 0.024 from Spolar et al. 1992 represents
         the entropic part of the hydrophobic effect at 300 K.
     """
+    complex_pdb
+
+
+
     # Free state SASA: each chain on its own
     path_a, path_b = split_chains_to_tempfiles(complex_pdb, chain_a, chain_b)
     try:
@@ -149,12 +152,11 @@ def compute(
     sasa_complex = _nonpolar_sasa(complex_pdb)
 
     delta_sasa = (sasa_a_free + sasa_b_free) - sasa_complex
-    # Sign: hydrophobic burial RELEASES ordered water -> favourable -> the
-    # entropy CHANGE is POSITIVE -> -T*Delta_S is NEGATIVE.
-    minusT_dS = -coefficient * delta_sasa
+    minusT_dS_kcal = -coefficient * delta_sasa
+    deltaS = -(minusT_dS_kcal * 4184.0) / T
 
     return HydrophobicResult(
         delta_nonpolar_sasa=delta_sasa,
         coefficient=coefficient,
-        minusT_deltaS=minusT_dS,
+        deltaS=deltaS,
     )

@@ -49,14 +49,15 @@ from . import sidechain
 from . import backbone
 
 
+
 @dataclass
-class EntropySummary:
-    """Full per-component breakdown plus the total."""
-    minusT_dS_trans_rot: float
-    minusT_dS_hydrophobic: float
-    minusT_dS_sidechain: float
-    minusT_dS_backbone: float
-    minusT_dS_total: float
+class Protein_Entropy:
+    """Per-component binding entropy breakdown. All values in J/(mol·K)."""
+    dS_trans_rot:   float
+    dS_hydrophobic: float
+    dS_sidechain:   float
+    dS_backbone:    float
+    dS_total:       float
 
 
 # -----------------------------------------------------------------------------
@@ -70,9 +71,9 @@ def compute_total_entropy(
     T: float = 300.0,
     return_breakdown: bool = False,
     HYDROPHOBIC_SETTING: str = "SASA",
-) -> float | EntropySummary:
+) -> float | Protein_Entropy:
     """
-    Compute the total -T*Delta_S of binding (kcal/mol).
+    Compute the total binding entropy ΔS in J/(mol·K).
 
     Parameters
     ----------
@@ -83,12 +84,14 @@ def compute_total_entropy(
     T : float
         Temperature in Kelvin (default 300).
     return_breakdown : bool
-        If False (default), return the single scalar total. If True,
-        return an EntropySummary dataclass with each component exposed.
+        If False (default), return the scalar total ΔS in J/(mol·K).
+        If True, return an Protein_Entropy with each component exposed.
+    HYDROPHOBIC_SETTING : str
+        "SASA" (default) or "Sun" — selects the hydrophobic entropy method.
 
     Returns
     -------
-    float (default) or EntropySummary
+    float (default) or Protein_Entropy — values in J/(mol·K)
     """
     # Each module is independent and can fail without bringing the others
     # down; we use try/except so a single module's failure doesn't kill
@@ -99,59 +102,58 @@ def compute_total_entropy(
 
     try:
         tr = trans_rot.compute(pdb_path, chain_a, chain_b, T=T)
-        minusT_tr = tr.total
+        dS_tr = tr.total
     except Exception as exc:
         warnings.warn(f"trans_rot module failed: {exc}; contributing 0.")
-        minusT_tr = 0.0
+        dS_tr = 0.0
 
     if HYDROPHOBIC_SETTING == "Sun":
         try:
             from . import protein_solvent_entropy
             import bindscore.pdb_file_treatment.protein_radius_estimation as radius_estimation
-            coords_a  = radius_estimation.load_atoms(pdb_path, chain_id=chain_a)
+            coords_a   = radius_estimation.load_atoms(pdb_path, chain_id=chain_a)
             centroid_a = radius_estimation.find_centroid(coords_a)
-            R_a       = radius_estimation.estimate_radius(coords_a, centroid_a)[0]
-            coords_b  = radius_estimation.load_atoms(pdb_path, chain_id=chain_b)
+            R_a        = radius_estimation.estimate_radius(coords_a, centroid_a)[0]
+            coords_b   = radius_estimation.load_atoms(pdb_path, chain_id=chain_b)
             centroid_b = radius_estimation.find_centroid(coords_b)
-            R_b       = radius_estimation.estimate_radius(coords_b, centroid_b)[0]
-            ps_i_a = protein_solvent_entropy.dS_interfacial(R_a, T)
-            ps_b_a = protein_solvent_entropy.dS_bulk(R_a)
-            ps_i_b = protein_solvent_entropy.dS_interfacial(R_b, T)
-            ps_b_b = protein_solvent_entropy.dS_bulk(R_b)
-            minusT_hp = ps_i_a + ps_b_a + ps_i_b + ps_b_b
+            R_b        = radius_estimation.estimate_radius(coords_b, centroid_b)[0]
+            dS_hp = (protein_solvent_entropy.dS_interfacial(R_a, T)
+                   + protein_solvent_entropy.dS_bulk(R_a)
+                   + protein_solvent_entropy.dS_interfacial(R_b, T)
+                   + protein_solvent_entropy.dS_bulk(R_b))
         except Exception as exc:
             warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
-            minusT_hp = 0.0
-    else:  # "SASA" or any other value
+            dS_hp = 0.0
+    else:  # "SASA"
         try:
-            hp = hydrophobic.compute(pdb_path, chain_a, chain_b)
-            minusT_hp = hp.minusT_deltaS
+            hp = hydrophobic.compute(pdb_path, chain_a, chain_b, T=T)
+            dS_hp = hp.deltaS
         except Exception as exc:
             warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
-            minusT_hp = 0.0
+            dS_hp = 0.0
 
     try:
-        sc = sidechain.compute(pdb_path, chain_a, chain_b)
-        minusT_sc = sc.minusT_deltaS
+        sc = sidechain.compute(pdb_path, chain_a, chain_b, T=T)
+        dS_sc = sc.deltaS
     except Exception as exc:
         warnings.warn(f"sidechain module failed: {exc}; contributing 0.")
-        minusT_sc = 0.0
+        dS_sc = 0.0
 
     try:
         bb = backbone.compute(pdb_path, chain_a, chain_b, T=T)
-        minusT_bb = bb.minusT_deltaS
+        dS_bb = bb.deltaS
     except Exception as exc:
         warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
-        minusT_bb = 0.0
+        dS_bb = 0.0
 
-    total = minusT_tr + minusT_hp + minusT_sc + minusT_bb
+    dS_total = dS_tr + dS_hp + dS_sc + dS_bb
 
     if return_breakdown:
-        return EntropySummary(
-            minusT_dS_trans_rot=minusT_tr,
-            minusT_dS_hydrophobic=minusT_hp,
-            minusT_dS_sidechain=minusT_sc,
-            minusT_dS_backbone=minusT_bb,
-            minusT_dS_total=total,
+        return Protein_Entropy(
+            dS_trans_rot=dS_tr,
+            dS_hydrophobic=dS_hp,
+            dS_sidechain=dS_sc,
+            dS_backbone=dS_bb,
+            dS_total=dS_total,
         )
-    return total
+    return dS_total
