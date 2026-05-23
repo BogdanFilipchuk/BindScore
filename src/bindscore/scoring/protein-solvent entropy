@@ -321,7 +321,7 @@ def main():
     parser.add_argument(
         "pdb",
         nargs="?",
-        default=Path("tests/test_pdb_files/1A2B.pdb"),
+        default=Path("tests/test_pdb_files/6PYH.pdb"),
         help="Path to the PDB file (.pdb)"
     )
     parser.add_argument(
