@@ -503,3 +503,12 @@ class Protein_Structure:
         }
 
         return summary_dict
+    
+    def get_ID(self)->str:
+        """
+        Returns the ID of the PDB.
+        """
+        data = self.pdb_data
+        pdb_id = data[0][62:66].strip()
+        return pdb_id
+
