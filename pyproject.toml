@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bindscore", "src/bindscore/binding_entropy"]   # ← ADD the subpackage
+packages = ["src/bindscore"]
 
 [tool.pyright]
 pythonVersion = "3.10"

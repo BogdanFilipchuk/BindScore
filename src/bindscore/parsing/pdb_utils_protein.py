@@ -27,6 +27,7 @@ class Protein_Structure:
             get_small_molecule(small_molecule_id)- Extracts the atoms for a specific small molecule.
             get_entity(entity_id)                - Extracts the atoms for a chain or small molecule.
             summary()                            - Provides a summary of the protein structure.
+            get_ID()                             - Returns the PDB ID.                           
         '''
 
         self.pdb_data  = pdb_data
