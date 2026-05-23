@@ -44,4 +44,4 @@ def fetch_pdb_file(database_url: str, pdb_id: str, save_dir: str = ".") -> str:
 
     return file_path
 
-fetch_pdb_file(pdb_database_url,"6PYH" )
+fetch_pdb_file(pdb_database_url,"1FQ9" )
