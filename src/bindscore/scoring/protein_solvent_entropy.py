@@ -209,7 +209,7 @@ def dS_bulk(R: float) -> float:
         ΔS_bulk = ΔS_DDAA · (1 − ratio)
     """
     ratio = interfacial_to_volume_ratio(R)
-    return DS_DDAA * (1.0 - ratio)
+    return -DS_DDAA * (1.0 - ratio)
 
 
 #def dS_total(R: float, T: float) -> float:
