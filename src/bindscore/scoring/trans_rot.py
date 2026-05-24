@@ -1,4 +1,6 @@
 """
+BROKEN MODULE.
+
 binding_entropy.trans_rot
 =========================
 
