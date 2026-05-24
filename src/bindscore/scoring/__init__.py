@@ -30,7 +30,7 @@ compute_total_entropy(complex_pdb, chain_a, chain_b)
     Returns a single number: -T*Delta_S_binding in kcal/mol.
 """
 
-from bindscore.scoring.total_entropy import compute_total_entropy, Protein_Entropy_Summary
+from bindscore.scoring.total_entropy import compute_total_entropy, Binding_Entropy_Summary
 
-__all__ = ["compute_total_entropy", "Protein_Entropy_Summary"]
+__all__ = ["compute_total_entropy", "Binding_Entropy_Summary"]
 __version__ = "0.1.0"

@@ -1,5 +1,5 @@
 """
-binding_entropy.summary
+total_entropy.py
 =======================
 
 Top-level entry point: combines the four entropy submodules into a single estimate of the binding entropy contribution to Delta_G.
@@ -35,8 +35,14 @@ from .sidechain              import SidechainResult
 from .backbone               import BackboneResult
 
 
+### MAIN DATACLASS
+"""
+Binding_Entropy_Summary will be returned by the module for final results. 
+It contains all 4 contributions as proprietary objects with their own reuslts structure (see other modules),
+as well as the 5 float variables taken from those objects giving the entropy dS results that were found.
+"""
 @dataclass
-class Protein_Entropy_Summary:
+class Binding_Entropy_Summary:
     """Per-component binding entropy breakdown. All values in J/(mol·K)."""
     dS_trans_rot:   float
     dS_hydrophobic: float
@@ -49,18 +55,14 @@ class Protein_Entropy_Summary:
     sidechain_detail:   Optional[SidechainResult]   = field(default=None, repr=False)
     backbone_detail:    Optional[BackboneResult]    = field(default=None, repr=False)
 
-
-# -----------------------------------------------------------------------------
-# Main public function
-# -----------------------------------------------------------------------------
-
+### MAIN FUNCTION
 def compute_total_entropy(
     complex_pdb: str,
     chain_a: str,
     chain_b: str,
     T: float = 300.0,
     return_breakdown: bool = False,
-) -> float | Protein_Entropy_Summary:
+) -> float | Binding_Entropy_Summary:
     """
     Compute the total binding entropy ΔS in J/(mol·K).
 
@@ -74,11 +76,11 @@ def compute_total_entropy(
         Temperature in Kelvin (default 300).
     return_breakdown : bool
         If False (default), return the scalar total ΔS in J/(mol·K).
-        If True, return a Protein_Entropy_Summary with each component exposed.
+        If True, return a Binding_Entropy_Summary with each component exposed.
 
     Returns
     -------
-    float (default) or Protein_Entropy_Summary — values in J/(mol·K)
+    float (default) or Binding_Entropy_Summary — values in J/(mol·K)
     """
     # Each module is independent and can fail without bringing the others
     # down; we use try/except so a single module's failure doesn't kill
@@ -122,7 +124,7 @@ def compute_total_entropy(
     dS_total = dS_tr + dS_hp + dS_sc + dS_bb
 
     if return_breakdown:
-        return Protein_Entropy_Summary(
+        return Binding_Entropy_Summary(
             dS_trans_rot=dS_tr,
             dS_hydrophobic=dS_hp,
             dS_sidechain=dS_sc,
