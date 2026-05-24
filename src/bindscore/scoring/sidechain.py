@@ -1,8 +1,7 @@
 """
-binding_entropy.sidechain
+sidechain.py
+Module for computing the side-chain conformational entropy loss at the binding interface.
 =========================
-
-Side-chain conformational entropy loss at the binding interface.
 
 When a sidechain is buried at an interface, it loses access to most of
 the rotamer states it samples freely in solution. The textbook approach
@@ -54,7 +53,7 @@ from typing import Dict, List
 
 from Bio.PDB import PDBParser
 
-from .utils import identify_interface_residues
+from .entropy_utils import identify_interface_residues
 
 
 # -----------------------------------------------------------------------------

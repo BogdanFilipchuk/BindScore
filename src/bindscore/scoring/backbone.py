@@ -1,4 +1,5 @@
 """
+backbone.py
 Backbone configurational entropy module
 ========================
 Backbone (and collective) configurational entropy via Elastic NetworkModel + Normal Mode Analysis.
@@ -69,7 +70,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .utils import split_chains_to_tempfiles
+from .entropy_utils import split_chains_to_tempfiles
 
 
 # ----- Physical constants used in the harmonic-oscillator entropy -----
