@@ -1,8 +1,7 @@
 import os
 import pathlib
 import sys
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / 'pdb_file_treatment'))
-from pdb_utils_fetch import fetch_pdb_data
+from bindscore.pdb_file_treatment.pdb_utils_fetch import fetch_pdb_data
 
 
 class Protein_Structure:
@@ -27,6 +26,7 @@ class Protein_Structure:
             get_small_molecule(small_molecule_id)- Extracts the atoms for a specific small molecule.
             get_entity(entity_id)                - Extracts the atoms for a chain or small molecule.
             summary()                            - Provides a summary of the protein structure.
+            get_ID()                             - Returns the PDB ID.                           
         '''
 
         self.pdb_data  = pdb_data
@@ -478,6 +478,18 @@ class Protein_Structure:
             return self.get_small_molecule(entity_id)
         else:
             raise ValueError(f"Entity '{entity_id}' not found in the PDB data.")
+
+    def get_ID(self):
+        '''
+        Extracts the PDB ID from the PDB data.
+        Returns:
+            str: The PDB ID if found, otherwise 'Unknown'.
+        '''
+
+        for line in self.pdb_data.splitlines():
+            if line.startswith('HEADER'):
+                return line[62:66].strip()
+        return 'Unknown'
 
     def summary(self):
         '''

@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "bindscore"
@@ -11,16 +11,26 @@ dependencies = [
     "gemmi",
     "biopython",
     "numpy",
+    "gemmi",
     "freesasa",
+    "streamlit",
+    "matplotlib",
+    "py3Dmol",
+    "mols2grid",
+    "ipython_genutils",
     "pymol-open-source",
     "pathlib",
     "openmm",
-    "prody>=2.4",        # ← ADD: ANM/NMA for backbone.py
-    "scipy>=1.10",       # ← ADD: stable symmetric matrix diagonalisation
+    "prody>=2.4",
+    "scipy>=1.10",
+    "click>=8.0",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/bindscore", "src/bindscore/binding_entropy"]   # ← ADD the subpackage
+[project.scripts]
+bindscore = "bindscore.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pyright]
 pythonVersion = "3.10"
