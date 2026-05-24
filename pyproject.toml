@@ -17,12 +17,11 @@ dependencies = [
     "py3Dmol", 
     "mols2grid",
     "ipython_genutils",
-    =======
     "pymol-open-source",
     "pathlib",
     "openmm",
-    "prody>=2.4",        # ← ADD: ANM/NMA for backbone.py
-    "scipy>=1.10",       # ← ADD: stable symmetric matrix diagonalisation
+    "prody>=2.4",
+    "scipy>=1.10",
 ]
 
 [tool.hatch.build.targets.wheel]
