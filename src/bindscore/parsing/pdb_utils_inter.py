@@ -93,18 +93,23 @@ class Interaction:
         self.entity1 = protein.get_entity(chain1)
         self.entity2 = protein.get_entity(chain2)
 
-        # cache rings for fast lookup during categorize_interaction
         if chain1 in self.protein.chains():
             self.rings1 = {r['residue_seq']: r for r in self.protein.get_rings(self.chain1)}
         elif chain1 in self.protein.small_molecules():
-            self.rings1 = list(self.protein.get_small_molecule_aromatic_rings(self.chain1))
+            self.rings1 = {}
+            for ring in self.protein.get_small_molecule_aromatic_rings(self.chain1):
+                for atom in ring['atoms']:
+                    self.rings1[atom['atom_seq']] = ring
         else:
             self.rings1 = {}
             
         if chain2 in self.protein.chains():
             self.rings2 = {r['residue_seq']: r for r in self.protein.get_rings(self.chain2)}
         elif chain2 in self.protein.small_molecules():
-            self.rings2 = list(self.protein.get_small_molecule_aromatic_rings(self.chain2))
+            self.rings2 = {}
+            for ring in self.protein.get_small_molecule_aromatic_rings(self.chain2):
+                for atom in ring['atoms']:
+                    self.rings2[atom['atom_seq']] = ring
         else:
             self.rings2 = {}
 
@@ -139,7 +144,7 @@ class Interaction:
             for atom2 in self.entity2:
                 distance = calculate_distance(atom1, atom2)
                 if distance <= threshold:
-                    interaction_type = self.categorize_interaction(atom1, atom2, seen_hydrophobic, seen_salt_bridge, seen_pi_pi)
+                    interaction_type = self.categorize_interaction(atom1, atom2, distance, seen_hydrophobic, seen_salt_bridge, seen_pi_pi)
                     interactions.append({
                         'atom1': atom1,
                         'atom2': atom2,
@@ -148,7 +153,7 @@ class Interaction:
                     })
         return interactions
     
-    def categorize_interaction(self, atom1, atom2, seen_hydrophobic=None, seen_salt_bridge=None, seen_pi_pi=None):
+    def categorize_interaction(self, atom1, atom2, distance, seen_hydrophobic=None, seen_salt_bridge=None, seen_pi_pi=None):
         '''
         Categorizes the interaction between two atoms based on the entity types
         (chain or small molecule), atom identity, geometry, and chemical rules.
@@ -253,22 +258,13 @@ class Interaction:
             if dist > 5.5:
                 return False
             angle = get_angle_between_normals(ring1['normal'], ring2['normal'])
-            return angle <= 30 or angle >= 150 or (60 <= angle <= 120)
-
-        def find_ring_for_atom(atom, rings):
-            rings_iter = rings.values() if isinstance(rings, dict) else rings
-            for ring in rings_iter:
-                for ratom in ring['atoms']:
-                    if ratom['atom_seq'] == atom['atom_seq']:
-                        return ring
-            return None
+            return angle <= 30 or angle >= 150
 
         res_at1 = (atom1['residue_name'], atom1['atom_name'])
         res_at2 = (atom2['residue_name'], atom2['atom_name'])
 
         # Disulfide Bonds
         if (atom1['atom_name'] == 'SG' and atom2['atom_name'] == 'SG' and atom1['residue_name'] == 'CYS' and atom2['residue_name'] == 'CYS'):
-            distance = calculate_distance(atom1, atom2)
             if 1.8 <= distance <= 2.5:
                 return 'disulfide_bond'
             
@@ -286,7 +282,7 @@ class Interaction:
                 # protein-protein interaction
 
                 # Salt Bridges
-                if (res_at1 in pos_charged and res_at2 in neg_charged) or (res_at1 in neg_charged and res_at2 in pos_charged):
+                if ((res_at1 in pos_charged and res_at2 in neg_charged) or (res_at1 in neg_charged and res_at2 in pos_charged)) and distance < 4.0:
 
                         if seen_salt_bridge is not None:
                             res_key = (atom1['residue_seq'], atom2['residue_seq'])
@@ -297,7 +293,7 @@ class Interaction:
                         return 'salt_bridge'
 
                 # Hydrogen Bonds
-                elif (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO):
+                elif (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO) and distance < 3.3:
                     if (res_at1 in h_bond_donor or (atom1['atom_name'] =='N' and atom1['residue_name'] not in {'PRO', 'HYP'})) and (res_at2 in h_bond_acceptor or atom2['atom_name'] =='O' or atom2['atom_name'] =='OXT'):
                         return 'hydrogen_bond'
                     elif (res_at2 in h_bond_donor or (atom2['atom_name'] =='N' and atom2['residue_name'] not in {'PRO', 'HYP'})) and (res_at1 in h_bond_acceptor or atom1['atom_name'] =='O' or atom1['atom_name'] =='OXT'):
@@ -322,7 +318,7 @@ class Interaction:
                 # Hydrophobic Contact
                 elif atom1['residue_name'] in hydrophobic_residues and atom2['residue_name'] in hydrophobic_residues:
                     if atom1['atom_symbol'] == 'C' and atom2['atom_symbol'] == 'C':
-                        if atom1['atom_name'] not in {'C', 'CA'} and atom2['atom_name'] not in {'C', 'CA'}:
+                        if atom1['atom_name'] not in {'C', 'CA'} and atom2['atom_name'] not in {'C', 'CA'} and distance < 4.4:
                             
                             if seen_hydrophobic is not None:
                                 res_key = (atom1['residue_seq'], atom2['residue_seq'])
@@ -336,7 +332,7 @@ class Interaction:
                 # protein-small molecule interaction
 
                 # Hydrogen Bonds
-                if (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO):
+                if (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO) and distance < 3.3:
                     if (res_at1 in h_bond_donor or (atom1['atom_name'] =='N' and atom1['residue_name'] not in {'PRO', 'HYP'})) or (res_at1 in h_bond_acceptor or atom1['atom_name'] =='O' or atom1['atom_name'] =='OXT'):
                         return 'hydrogen_bond'
                     
@@ -344,7 +340,7 @@ class Interaction:
                 elif atom1['atom_name'] == 'CG' and atom1['residue_name'] in aromatic_residues:
                     
                     ring1 = self.rings1.get(atom1['residue_seq'])     
-                    ring2 = find_ring_for_atom(atom2, self.rings2)     
+                    ring2 = self.rings2.get(atom2['atom_seq'])     
                     
                     if ring1 and ring2 and rings_are_stacking(ring1, ring2):
 
@@ -361,14 +357,14 @@ class Interaction:
                 # small molecule-protein interaction
 
                 # Hydrogen Bonds
-                if (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO):
+                if (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO) and distance < 3.3:
                     if (res_at2 in h_bond_donor or (atom2['atom_name'] =='N' and atom2['residue_name'] not in {'PRO', 'HYP'})) or (res_at2 in h_bond_acceptor or atom2['atom_name'] =='O' or atom2['atom_name'] =='OXT'):
                         return 'hydrogen_bond'
                 
                 # Pi-Pi Stacking
                 elif atom2['atom_name'] == 'CG' and atom2['residue_name'] in aromatic_residues:
                     
-                    ring1 = find_ring_for_atom(atom1, self.rings1) 
+                    ring1 = self.rings1.get(atom1['atom_seq']) 
                     ring2 = self.rings2.get(atom2['residue_seq']) 
                     
                     if ring1 and ring2 and rings_are_stacking(ring1, ring2):
@@ -385,12 +381,12 @@ class Interaction:
                 # small molecule-small molecule interaction
 
                 # Hydrogen Bonds
-                if (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO):
+                if (atom1['atom_symbol'] in listNO) and (atom2['atom_symbol'] in listNO) and distance < 3.3:
                     return 'hydrogen_bond'
                 
                 # Pi-Pi Stacking
-                ring1 = find_ring_for_atom(atom1, self.rings1)
-                ring2 = find_ring_for_atom(atom2, self.rings2)
+                ring1 = self.rings1.get(atom1['atom_seq'])
+                ring2 = self.rings2.get(atom2['atom_seq'])
                 
                 if ring1 and ring2 and rings_are_stacking(ring1, ring2):
                     
@@ -403,9 +399,9 @@ class Interaction:
                     return 'pi-pi_stacking'
         
         # Halogen Bonds
-        if calculate_distance(atom1, atom2) < 4.0 and ((atom1['atom_symbol'] in halogens and (res_at2 in h_bond_donor or res_at2 in h_bond_acceptor or atom2['atom_name'] in {'N', 'O', 'OXT'} or atom2['atom_symbol'] == 'S')) or (atom2['atom_symbol'] in halogens and (res_at1 in h_bond_donor or res_at1 in h_bond_acceptor or atom1['atom_name'] in {'N', 'O', 'OXT'} or atom1['atom_symbol'] == 'S'))):
+        if distance < 4.0 and ((atom1['atom_symbol'] in halogens and (res_at2 in h_bond_donor or res_at2 in h_bond_acceptor or atom2['atom_name'] in {'N', 'O', 'OXT'} or atom2['atom_symbol'] == 'S')) or (atom2['atom_symbol'] in halogens and (res_at1 in h_bond_donor or res_at1 in h_bond_acceptor or atom1['atom_name'] in {'N', 'O', 'OXT'} or atom1['atom_symbol'] == 'S'))):
                 return 'halogen_bond'
 
         # Dipole-Dipole
-        if calculate_distance(atom1, atom2) < 4.0 and (res_at1 in h_bond_donor or res_at1 in h_bond_acceptor or atom1['atom_name'] in {'N', 'O', 'OXT'} or atom1['atom_symbol'] == 'S') and (res_at2 in h_bond_donor or res_at2 in h_bond_acceptor or atom2['atom_name'] in {'N', 'O', 'OXT'} or atom2['atom_symbol'] == 'S'):
+        if distance < 3.3 and (res_at1 in h_bond_donor or res_at1 in h_bond_acceptor or atom1['atom_name'] in {'N', 'O', 'OXT'} or atom1['atom_symbol'] == 'S') and (res_at2 in h_bond_donor or res_at2 in h_bond_acceptor or atom2['atom_name'] in {'N', 'O', 'OXT'} or atom2['atom_symbol'] == 'S'):
                 return 'dipole-dipole'
