@@ -1,5 +1,5 @@
 """
-utils.py
+entropy_utils.py
 Function with utilities for other entropy modules
 ========
 
@@ -45,8 +45,8 @@ def split_chains_to_tempfiles(complex_pdb: str, chain_a: str, chain_b: str) -> T
     """
     Write the two chains of a complex to separate PDB files in /tmp.
 
-    Several downstream tools (ProDy, freesasa) take file paths rather than
-    in-memory objects, so we materialise each chain on disk.
+    Several downstream tools take file paths rather than in-memory objects like dicts or strings (such functions exist in pdb_utils_protein module),
+    so we create each chain file on disk temporary.
 
     Returns
     -------
