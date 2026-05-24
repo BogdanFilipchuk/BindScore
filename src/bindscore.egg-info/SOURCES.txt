@@ -11,6 +11,7 @@ src/bindscore.egg-info/requires.txt
 src/bindscore.egg-info/top_level.txt
 src/bindscore/parsing/__init__.py
 src/bindscore/parsing/enthalpy_run.py
+src/bindscore/parsing/header.py
 src/bindscore/parsing/pdb_utils_inter.py
 src/bindscore/parsing/pdb_utils_protein.py
 src/bindscore/pdb_file_treatment/__init__.py
@@ -19,6 +20,7 @@ src/bindscore/pdb_file_treatment/protein_radius_estimation.py
 src/bindscore/scoring/__init__.py
 src/bindscore/scoring/backbone.py
 src/bindscore/scoring/entropy_utils.py
+src/bindscore/scoring/header.py
 src/bindscore/scoring/pdb_utils_enthalpy.py
 src/bindscore/scoring/protein_solvent_entropy.py
 src/bindscore/scoring/sidechain.py
@@ -27,3 +29,4 @@ src/bindscore/scoring/trans_rot.py
 src/bindscore/web/__init__.py
 src/bindscore/web/app.py
 src/bindscore/web/utils.py
+tests/test_enthalpy.py

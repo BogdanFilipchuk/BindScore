@@ -1,13 +1,13 @@
-import header
+
 
 """
 Test script for protein interaction analysis
 Tests specific entity pairs per protein structure
 """
 
-from pdb_utils_fetch import fetch_pdb_data
-from pdb_utils_protein import Protein_Structure
-from pdb_utils_inter import Interaction
+from bindscore.pdb_file_treatment.pdb_utils_fetch import fetch_pdb_data
+from bindscore.parsing.pdb_utils_protein import Protein_Structure
+from bindscore.parsing.pdb_utils_inter import Interaction
 
 
 def print_interactions(inter):
@@ -31,7 +31,7 @@ def print_interactions(inter):
             dist = interaction['distance']
             print(f"    [{i+1}] {atom1['residue_name']}{atom1['residue_seq']}:{atom1['atom_name']} <-> "
                   f"{atom2['residue_name']}{atom2['residue_seq']}:{atom2['atom_name']} "
-                  f"({dist:.2f} Å)")
+                  f"({dist:.2f} A)")
 
 
 def test_protein(pdb_id, description, pairs):
@@ -58,11 +58,11 @@ def test_protein(pdb_id, description, pairs):
             except Exception as e:
                 print(f"  Error: {e}")
 
-        print(f"\n✓ {pdb_id} complete")
+        print(f"\n[OK] {pdb_id} complete")
         return True
 
     except Exception as e:
-        print(f"\n✗ Error: {pdb_id}: {e}")
+        print(f"\n[FAIL] Error: {pdb_id}: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -102,7 +102,7 @@ def main():
     successful = sum(1 for _, success in results if success)
     print(f"Successful: {successful}/{len(results)}")
     for pdb_id, success in results:
-        status = "✓ PASS" if success else "✗ FAIL"
+        status = "[PASS]" if success else "[FAIL]"
         print(f"  {status} - {pdb_id}")
 
 

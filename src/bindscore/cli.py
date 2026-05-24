@@ -48,6 +48,53 @@ def getchains(pdb_id:str):
         click.echo(f"Small molecules in {myprotein.get_ID()} : {sorted(myprotein.small_molecules())}")
 
 
+# ---------------------------------------------------------------------------
+# `bindscore interactions` - command showing examples of interactions
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("pdb_id",  metavar="PDB")
+@click.argument("chain_a", metavar="CHAIN_A")
+@click.argument("chain_b", metavar="CHAIN_B")
+@click.option("--threshold", "-t", default=5.0, show_default=True, help="Distance cutoff for atom-atom contacts in Angstrom.")
+def interactions(pdb_id, chain_a, chain_b, threshold):
+    """List atom-pair contacts between two chains.
+    Example
+        bindscore interactions 1BRS A D
+    """
+    import pathlib
+    from bindscore.pdb_file_treatment.pdb_utils_fetch import fetch_pdb_file, fetch_pdb_data
+    from bindscore.parsing.pdb_utils_protein import Protein_Structure
+    from bindscore.parsing.pdb_utils_inter import Interaction
+
+    pdb_path = pathlib.Path(pdb_id)
+    if not pdb_path.exists():
+        click.echo(f"Fetching {pdb_id.upper()} from RCSB...")
+        pdb_path = fetch_pdb_file(pdb_id)
+
+    pdb_data = fetch_pdb_data(str(pdb_path))
+    my_protein  = Protein_Structure(pdb_data)
+    my_inter    = Interaction(my_protein, chain_a, chain_b, threshold=threshold)
+
+
+    """
+    Same function as example_inter in the tests folder but for CLI. I tried to import it from tests but it didnt work. Lots of trouble with relative paths.
+    """
+    click.echo(f"\n{len(my_inter.interactions)} contacts  {chain_a}/{chain_b}  cutoff={threshold} A")
+    click.echo("-" * 50)
+
+    grouped: dict = {}
+    for interaction in my_inter.interactions:
+        itype = interaction["type"] or "unclassified"
+        grouped.setdefault(itype, []).append(c)
+
+    for itype, contacts in sorted(grouped.items()):
+        click.echo(f"  {itype}: {len(contacts)}")
+        for i, c in enumerate(contacts, 1):
+            a1, a2 = c["atom1"], c["atom2"]
+            click.echo(f"    [{i}] {a1['residue_name']}{a1['residue_seq']}:{a1['atom_name']}"
+                       f" <-> {a2['residue_name']}{a2['residue_seq']}:{a2['atom_name']}"
+                       f"  ({c['distance']:.2f} A)")
 
 
 
