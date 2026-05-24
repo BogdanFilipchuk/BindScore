@@ -3,7 +3,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / 'scoring'))
 from pdb_utils_enthalpy import *
 from pdb_utils_protein import Protein_Structure
 
-def get_dataset_interaction_list(pdb_id, chain_a, chain_d, threshold=5.0):
+def get_dataset_interaction_list(pdb_id, chain_a, chain_b, threshold=5.0):
     """
     Iterates over the dataset and returns a flat list containing every single
     interaction dict across all proteins using the exact requested format.
@@ -17,7 +17,8 @@ def get_dataset_interaction_list(pdb_id, chain_a, chain_d, threshold=5.0):
 
     # 2. Build the structural objects
     protein = Protein_Structure(pdb_data)
-    inter = Interaction(protein, chain_a, chain_d, threshold=threshold)
+    print('The entities in the protein structure are:', '\n Protein chains:', protein.chains(), '\n Small molecules:', protein.small_molecules())
+    inter = Interaction(protein, chain_a, chain_b, threshold=threshold)
 
     # 3. Calculate enthalpies (populates the 'energy' keys inside inter.interactions)
     _ = binding_enthalpy(inter)

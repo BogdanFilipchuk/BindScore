@@ -1,36 +1,17 @@
 """
-binding_entropy.summary
+total_entropy.py
 =======================
 
-Top-level entry point: combines the four entropy submodules into a single
-estimate of the binding entropy contribution to Delta_G.
+Top-level entry point: combines the four entropy submodules into a single estimate of the binding entropy contribution to Delta_G.
 
 Modules used
 ------------
-trans_rot   - Sackur-Tetrode translational + rigid-rotor rotational
-              entropy of one chain relative to the other in the cage of
-              the complex. Largest single contribution for most PPIs.
-              References: Page & Jencks 1971; Finkelstein & Janin 1989.
+trans_rot, hydrophobic, sidechain and backbone submodules of the package.
 
-hydrophobic - SASA-based estimate of the entropic part of the
-              hydrophobic effect. The only typically FAVOURABLE component.
-              References: Chothia 1974; Spolar, Livingstone & Record 1992.
-
-sidechain   - Per-residue sidechain conformational entropy loss for
-              interface residues, using the Pickett-Sternberg scale.
-              References: Pickett & Sternberg 1993; Doig & Sternberg 1995;
-              Halle & Nilsson 2002 (interface-specific validation).
-
-backbone    - Coarse-grained backbone collective entropy from an
-              Anisotropic Network Model normal-mode analysis via ProDy.
-              References: Tirion 1996; Bahar et al. 1997; Atilgan et al.
-              2001; Bakan, Meireles & Bahar 2011 (the ProDy package).
-
-Explicitly omitted (see package __init__ docstring)
+Explicitly omitted (see package __init__ docstring and Jupyter)
 ---------------------------------------------------
-- Polarization entropy of solvent: requires solvent FEP, infeasible in 2 min.
-- Bulk protein configurational entropy beyond the interface: assumed to
-  cancel between bound and free states.
+- Polarization entropy of solvent: requires solvent FEP modelisation, infeasible in the goal time frame goal set by us in the design of the package.
+- Bulk protein configurational entropy beyond the interface: assumed to cancel between bound and free states. (Would require using MD engines like OpenMM for simulations like RR-FEP. We tried, but for a 3 atom mo)
 
 Sign convention
 ---------------
@@ -41,54 +22,65 @@ a Delta_G estimate.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Optional
 
 from . import trans_rot
-from . import hydrophobic
+from . import protein_solvent_entropy
 from . import sidechain
 from . import backbone
+from .trans_rot              import TransRotResult
+from .protein_solvent_entropy import HydrophobicResult
+from .sidechain              import SidechainResult
+from .backbone               import BackboneResult
 
 
+### MAIN DATACLASS
+"""
+Binding_Entropy_Summary will be returned by the module for final results. 
+It contains all 4 contributions as proprietary objects with their own reuslts structure (see other modules),
+as well as the 5 float variables taken from those objects giving the entropy dS results that were found.
+"""
 @dataclass
-class EntropySummary:
-    """Full per-component breakdown plus the total."""
-    minusT_dS_trans_rot: float
-    minusT_dS_hydrophobic: float
-    minusT_dS_sidechain: float
-    minusT_dS_backbone: float
-    minusT_dS_total: float
+class Binding_Entropy_Summary:
+    """Per-component binding entropy breakdown. All values in J/(mol·K)."""
+    dS_trans_rot:   float
+    dS_hydrophobic: float
+    dS_sidechain:   float
+    dS_backbone:    float
+    dS_total:       float
+    "List of submodule result objects — None if that module failed or was not run"
+    trans_rot_detail:   Optional[TransRotResult]    = field(default=None, repr=False)
+    hydrophobic_detail: Optional[HydrophobicResult] = field(default=None, repr=False)
+    sidechain_detail:   Optional[SidechainResult]   = field(default=None, repr=False)
+    backbone_detail:    Optional[BackboneResult]    = field(default=None, repr=False)
 
-
-# -----------------------------------------------------------------------------
-# Main public function
-# -----------------------------------------------------------------------------
-
+### MAIN FUNCTION
 def compute_total_entropy(
     complex_pdb: str,
     chain_a: str,
     chain_b: str,
     T: float = 300.0,
     return_breakdown: bool = False,
-    HYDROPHOBIC_SETTING: str = "SASA",
-) -> float | EntropySummary:
+) -> float | Binding_Entropy_Summary:
     """
-    Compute the total -T*Delta_S of binding (kcal/mol).
+    Compute the total binding entropy ΔS in J/(mol·K).
 
     Parameters
     ----------
-    complex_pdb : str
+    complex_pdb : str or pathlib path
         Path to a PDB file of the bound complex (both chains together).
     chain_a, chain_b : str
         Single-character chain IDs of the two binding partners.
     T : float
         Temperature in Kelvin (default 300).
     return_breakdown : bool
-        If False (default), return the single scalar total. If True,
-        return an EntropySummary dataclass with each component exposed.
+        If False (default), return the scalar total ΔS in J/(mol·K).
+        If True, return a Binding_Entropy_Summary with each component exposed.
 
     Returns
     -------
-    float (default) or EntropySummary
+    float (default) or Binding_Entropy_Summary — values in J/(mol·K)
     """
     # Each module is independent and can fail without bringing the others
     # down; we use try/except so a single module's failure doesn't kill
@@ -97,61 +89,50 @@ def compute_total_entropy(
     import warnings
     pdb_path = str(complex_pdb)
 
+    tr_result: Optional[TransRotResult] = None
     try:
-        tr = trans_rot.compute(pdb_path, chain_a, chain_b, T=T)
-        minusT_tr = tr.total
+        tr_result = trans_rot.compute(pdb_path, chain_a, chain_b, T=T)
+        dS_tr = tr_result.total
     except Exception as exc:
         warnings.warn(f"trans_rot module failed: {exc}; contributing 0.")
-        minusT_tr = 0.0
+        dS_tr = 0.0
 
-    if HYDROPHOBIC_SETTING == "Sun":
-        try:
-            from . import protein_solvent_entropy
-            import bindscore.pdb_file_treatment.protein_radius_estimation as radius_estimation
-            coords_a  = radius_estimation.load_atoms(pdb_path, chain_id=chain_a)
-            centroid_a = radius_estimation.find_centroid(coords_a)
-            R_a       = radius_estimation.estimate_radius(coords_a, centroid_a)[0]
-            coords_b  = radius_estimation.load_atoms(pdb_path, chain_id=chain_b)
-            centroid_b = radius_estimation.find_centroid(coords_b)
-            R_b       = radius_estimation.estimate_radius(coords_b, centroid_b)[0]
-            ps_i_a = protein_solvent_entropy.dS_interfacial(R_a, T)
-            ps_b_a = protein_solvent_entropy.dS_bulk(R_a)
-            ps_i_b = protein_solvent_entropy.dS_interfacial(R_b, T)
-            ps_b_b = protein_solvent_entropy.dS_bulk(R_b)
-            minusT_hp = ps_i_a + ps_b_a + ps_i_b + ps_b_b
-        except Exception as exc:
-            warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
-            minusT_hp = 0.0
-    else:  # "SASA" or any other value
-        try:
-            hp = hydrophobic.compute(pdb_path, chain_a, chain_b)
-            minusT_hp = hp.minusT_deltaS
-        except Exception as exc:
-            warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
-            minusT_hp = 0.0
-
+    hp_result: Optional[HydrophobicResult] = None
     try:
-        sc = sidechain.compute(pdb_path, chain_a, chain_b)
-        minusT_sc = sc.minusT_deltaS
+        hp_result = protein_solvent_entropy.compute(pdb_path, chain_a, chain_b, T=T)
+        dS_hp = hp_result.deltaS
+    except Exception as exc:
+        warnings.warn(f"hydrophobic (Sun) module failed: {exc}; contributing 0.")
+        dS_hp = 0.0
+
+    sc_result: Optional[SidechainResult] = None
+    try:
+        sc_result = sidechain.compute(pdb_path, chain_a, chain_b, T=T)
+        dS_sc = sc_result.deltaS
     except Exception as exc:
         warnings.warn(f"sidechain module failed: {exc}; contributing 0.")
-        minusT_sc = 0.0
+        dS_sc = 0.0
 
+    bb_result: Optional[BackboneResult] = None
     try:
-        bb = backbone.compute(pdb_path, chain_a, chain_b, T=T)
-        minusT_bb = bb.minusT_deltaS
+        bb_result = backbone.compute(pdb_path, chain_a, chain_b, T=T)
+        dS_bb = bb_result.deltaS
     except Exception as exc:
         warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
-        minusT_bb = 0.0
+        dS_bb = 0.0
 
-    total = minusT_tr + minusT_hp + minusT_sc + minusT_bb
+    dS_total = dS_tr + dS_hp + dS_sc + dS_bb
 
     if return_breakdown:
-        return EntropySummary(
-            minusT_dS_trans_rot=minusT_tr,
-            minusT_dS_hydrophobic=minusT_hp,
-            minusT_dS_sidechain=minusT_sc,
-            minusT_dS_backbone=minusT_bb,
-            minusT_dS_total=total,
+        return Binding_Entropy_Summary(
+            dS_trans_rot=dS_tr,
+            dS_hydrophobic=dS_hp,
+            dS_sidechain=dS_sc,
+            dS_backbone=dS_bb,
+            dS_total=dS_total,
+            trans_rot_detail=tr_result,
+            hydrophobic_detail=hp_result,
+            sidechain_detail=sc_result,
+            backbone_detail=bb_result,
         )
-    return total
+    return dS_total

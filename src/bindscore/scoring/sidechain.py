@@ -1,8 +1,7 @@
 """
-binding_entropy.sidechain
+sidechain.py
+Module for computing the side-chain conformational entropy loss at the binding interface.
 =========================
-
-Side-chain conformational entropy loss at the binding interface.
 
 When a sidechain is buried at an interface, it loses access to most of
 the rotamer states it samples freely in solution. The textbook approach
@@ -54,7 +53,7 @@ from typing import Dict, List
 
 from Bio.PDB import PDBParser
 
-from .utils import identify_interface_residues
+from .entropy_utils import identify_interface_residues
 
 
 # -----------------------------------------------------------------------------
@@ -101,8 +100,8 @@ _SIDECHAIN_ENTROPY_KCAL: Dict[str, float] = {
 class SidechainResult:
     """Result of the sidechain entropy estimate."""
     per_residue: Dict[str, List[tuple]] = field(default_factory=dict)
-        # chain_id -> [(resnum, resname, -T*dS), ...]
-    minusT_deltaS: float = 0.0  # total, kcal/mol (positive = unfavourable)
+        # chain_id -> [(resnum, resname, deltaS J/(mol·K)), ...]
+    deltaS: float = 0.0  # total, J/(mol·K) — negative = favourable
 
 
 # -----------------------------------------------------------------------------
@@ -113,6 +112,7 @@ def compute(
     complex_pdb: str,
     chain_a: str,
     chain_b: str,
+    T: float = 300.0,
     scale: Dict[str, float] = None,
 ) -> SidechainResult:
     """
@@ -169,5 +169,5 @@ def compute(
             result.per_residue[chain_id].append((resnum, resname, cost))
             total += cost
 
-    result.minusT_deltaS = total
+    result.deltaS = -(total * 4184.0) / T
     return result
