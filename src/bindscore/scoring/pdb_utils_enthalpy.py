@@ -1,4 +1,3 @@
-from . import header
 import math
 from bindscore.parsing.pdb_utils_inter import Interaction
 
