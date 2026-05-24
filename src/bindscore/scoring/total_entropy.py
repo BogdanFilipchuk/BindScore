@@ -58,9 +58,9 @@ from ..pdb_file_treatment import protein_radius_estimation as radius_estimation
 class EntropySummary:
     """Full per-component breakdown plus the total."""
     minusT_dS_trans_rot: float
-    minusT_dS_hydrophobic: float
+    #minusT_dS_hydrophobic: float
     minusT_dS_sidechain: float
-    minusT_dS_backbone: float
+    #minusT_dS_backbone: float
     minusT_dS_total: float
     minusT_dS_protein_solvent: float
 
@@ -103,17 +103,17 @@ def compute_total_entropy(
 
     try:
         tr = trans_rot.compute(complex_pdb, chain_a, chain_b, T=T)
-        minusT_tr = tr.total*4.186  # convert from kcal/mol to kJ/mol
+        minusT_tr = tr.total
     except Exception as exc:
         warnings.warn(f"trans_rot module failed: {exc}; contributing 0.")
         minusT_tr = 0.0
 
-    try:
-        hp = hydrophobic.compute(complex_pdb, chain_a, chain_b)
-        minusT_hp = hp.minusT_deltaS*4.186  # convert from kcal/mol to kJ/mol
-    except Exception as exc:
-        warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
-        minusT_hp = 0.0
+#    try:
+ #       hp = hydrophobic.compute(complex_pdb, chain_a, chain_b)
+  #      minusT_hp = hp.minusT_deltaS*4.186  # convert from kcal/mol to kJ/mol
+   # except Exception as exc:
+     #   warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
+    #    minusT_hp = 0.0
 
     try:
         sc = sidechain.compute(complex_pdb, chain_a, chain_b)
@@ -122,12 +122,12 @@ def compute_total_entropy(
         warnings.warn(f"sidechain module failed: {exc}; contributing 0.")
         minusT_sc = 0.0
 
-    try:
-        bb = backbone.compute(complex_pdb, chain_a, chain_b, T=T)
-        minusT_bb = bb.minusT_deltaS*4.186  # convert from kcal/mol to J/mol
-    except Exception as exc:
-        warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
-        minusT_bb = 0.0
+ #   try:
+  #      bb = backbone.compute(complex_pdb, chain_a, chain_b, T=T)
+   #     minusT_bb = bb.minusT#_deltaS*4.186  # convert from kcal/mol to J/mol
+#    except Exception as exc:
+ #       warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
+  #      minusT_bb = 0.0
     try:
         coords_a = radius_estimation.load_atoms(complex_pdb, chain_id=chain_a)
         centroid_a = radius_estimation.find_centroid(coords_a)
@@ -146,14 +146,14 @@ def compute_total_entropy(
         warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
         minusT_ps = 0.0
 
-    total = minusT_tr + minusT_hp + minusT_sc + minusT_bb + minusT_ps
+    total = minusT_tr + minusT_sc+ minusT_ps
 
     if return_breakdown:
         return EntropySummary(
             minusT_dS_trans_rot=minusT_tr,
-            minusT_dS_hydrophobic=minusT_hp,
+            #minusT_dS_hydrophobic=minusT_hp,
             minusT_dS_sidechain=minusT_sc,
-            minusT_dS_backbone=minusT_bb,
+            #minusT_dS_backbone=minusT_bb,
             minusT_dS_protein_solvent=minusT_ps,
             minusT_dS_total=total,
         )

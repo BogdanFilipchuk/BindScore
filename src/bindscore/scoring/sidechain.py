@@ -54,6 +54,7 @@ from typing import Dict, List
 
 from Bio.PDB import PDBParser
 
+
 from .utils import identify_interface_residues
 
 
@@ -114,59 +115,89 @@ def compute(
     chain_a: str,
     chain_b: str,
     scale: Dict[str, float] = None,
+    sasa_cutoff: float = 1.0,
 ) -> SidechainResult:
-    """
-    Estimate -T*Delta_S_sidechain from interface residue burial.
 
-    Steps
-    -----
-    1. Identify interface residues (those that lose SASA on binding) via
-       the utils.identify_interface_residues helper.
-    2. For each interface residue, look up its per-residue entropy cost
-       in the Pickett-Sternberg scale.
-    3. Sum the contributions across both chains.
-
-    The result is always >= 0 (entropy is lost on burial; never gained).
-
-    Limitations
-    -----------
-    - Single value per residue type: ignores backbone-context dependence.
-    - All-or-nothing burial: residue contributes its full scale value if
-      it loses any SASA above threshold, regardless of how much.
-    - No coupling between adjacent interface residues (each treated
-      independently).
-    """
     if scale is None:
         scale = _SIDECHAIN_ENTROPY_KCAL
 
-    # Step 1: which residues are at the interface?
-    interface = identify_interface_residues(complex_pdb, chain_a, chain_b)
+    import copy
+    from Bio.PDB import SASA
 
-    # Step 2: look up each one's residue name from the structure
+    # ── Parse structure once ───────────────────────────────────────────────
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("s", complex_pdb)
-    resname_map: Dict[tuple, str] = {}   # (chain_id, resnum) -> resname
-    for model in structure:
+    sr = SASA.ShrakeRupley()
+
+    # ── Free chain A SASA ──────────────────────────────────────────────────
+    sasa_free: Dict[tuple, float] = {}
+    for target_chain in (chain_a, chain_b):
+        free_struct = copy.deepcopy(structure)
+        for model in free_struct:
+            chains_to_remove = [c.id for c in model if c.id != target_chain]
+            for cid in chains_to_remove:
+                model.detach_child(cid)
+            break
+        sr.compute(free_struct, level="R")
+        for model in free_struct:
+            for chain in model:
+                for res in chain:
+                    if res.id[0] == " ":
+                        sasa_free[(chain.id, res.id[1])] = res.sasa
+            break
+
+    # ── Bound SASA: only chains A+B, excluding all other chains ───────────
+    bound_struct = copy.deepcopy(structure)
+    for model in bound_struct:
+        chains_to_remove = [
+            c.id for c in model if c.id not in (chain_a, chain_b)
+        ]
+        for cid in chains_to_remove:
+            model.detach_child(cid)
+        break
+    sr.compute(bound_struct, level="R")
+    sasa_bound: Dict[tuple, float] = {}
+    for model in bound_struct:
         for chain in model:
             if chain.id not in (chain_a, chain_b):
                 continue
             for res in chain:
-                if res.id[0] != " ":
-                    continue
-                resname_map[(chain.id, res.id[1])] = res.get_resname()
-        break  # only first model
+                if res.id[0] == " ":
+                    sasa_bound[(chain.id, res.id[1])] = res.sasa
+        break
 
-    # Step 3: sum the entropy costs and collect per-residue breakdown
+    # ── Residue name map ───────────────────────────────────────────────────
+    resname_map: Dict[tuple, str] = {}
+    for model in bound_struct:
+        for chain in model:
+            for res in chain:
+                if res.id[0] == " ":
+                    resname_map[(chain.id, res.id[1])] = res.get_resname()
+        break
+
+    # ── Sum entropy weighted by burial fraction ────────────────────────────
     result = SidechainResult()
     total = 0.0
-    for chain_id, resnums in interface.items():
+    for chain_id in (chain_a, chain_b):
         result.per_residue[chain_id] = []
-        for resnum in resnums:
-            resname = resname_map.get((chain_id, resnum))
+        for key, sasa_f in sasa_free.items():
+            if key[0] != chain_id:
+                continue
+            sasa_b = sasa_bound.get(key, 0.0)
+            delta  = sasa_f - sasa_b
+
+            if delta < sasa_cutoff:
+                continue
+
+            burial_fraction = delta / sasa_f
+            resname = resname_map.get(key)
             if resname is None:
-                continue  # interface residue we couldn't map back (rare)
-            cost = scale.get(resname, 0.0)
-            result.per_residue[chain_id].append((resnum, resname, cost))
+                continue
+
+            cost = scale.get(resname, 0.0) * burial_fraction
+            result.per_residue[chain_id].append(
+                (key[1], resname, round(cost, 4), round(burial_fraction, 3))
+            )
             total += cost
 
     result.minusT_deltaS = total

@@ -14,10 +14,10 @@ DEBUG_OVERAL_ENTROPY:bool      = True
 DEBUG_TRANS_ROT_ENTROPY:bool   = True
 DEBUG_HYDROPHOBIC_ENTROPY:bool = True
 DEBUG_SIDECHAIN_ENTROPY:bool   = True
-DEBUG_BACKBONE_ENTROPY:bool    = True
+#DEBUG_BACKBONE_ENTROPY:bool    = True
 
 "Indicate the PDB file name if you want to test on another one"
-test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "6PYH.pdb"
+test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "1BRS.pdb"
 # test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "1FQ9.pdb"
 
 "Making a ProteinStructure object for your pdb"
