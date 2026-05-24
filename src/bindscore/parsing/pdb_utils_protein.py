@@ -1,7 +1,8 @@
+import header
+
 import os
 import pathlib
 import sys
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / 'pdb_file_treatment'))
 from pdb_utils_fetch import fetch_pdb_data
 
 
