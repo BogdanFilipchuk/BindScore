@@ -229,9 +229,9 @@ def compute(
     minusT_dS_rot = 0.6 * minusT_dS_trans
 
     return TransRotResult(
-    translational=minusT_dS_trans * 4.184,   # now kJ/mol
-    rotational=minusT_dS_rot * 4.184,
-    total=(minusT_dS_trans + minusT_dS_rot) * 4.184,
+    translational=minusT_dS_trans * 4.186,   # now kJ/mol
+    rotational=minusT_dS_rot * 4.186,
+    total=(minusT_dS_trans + minusT_dS_rot) * 4.186,
 )
 
 def _complex_inertia(pdb_path: str, chain_ids: list[str]):
