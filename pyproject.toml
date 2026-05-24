@@ -19,7 +19,6 @@ dependencies = [
     "ipython_genutils",
     "pymol-open-source",
     "pathlib",
-    "openmm",
     "prody>=2.4",
     "scipy>=1.10",
     "click>=8.0",
