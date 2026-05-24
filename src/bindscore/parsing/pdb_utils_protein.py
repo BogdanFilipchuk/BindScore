@@ -480,6 +480,18 @@ class Protein_Structure:
         else:
             raise ValueError(f"Entity '{entity_id}' not found in the PDB data.")
 
+    def get_ID(self):
+        '''
+        Extracts the PDB ID from the PDB data.
+        Returns:
+            str: The PDB ID if found, otherwise 'Unknown'.
+        '''
+
+        for line in self.pdb_data.splitlines():
+            if line.startswith('HEADER'):
+                return line[62:66].strip()
+        return 'Unknown'
+
     def summary(self):
         '''
         Provides a summary of the protein structure.
