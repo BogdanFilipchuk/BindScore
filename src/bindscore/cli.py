@@ -52,7 +52,7 @@ def score(pdb, chain_a, chain_b, temperature, breakdown, as_json):
     # Resolve PDB: local file or remote fetch
     pdb_path = pathlib.Path(pdb)
     if not pdb_path.exists():
-        click.echo(f"Fetching {pdb.upper()} from RCSB…")
+        click.echo(f"Fetching {pdb.upper()} from RCSB...")
         pdb_path = fetch_pdb_file(pdb)
 
     click.echo(f"Scoring {pdb_path.name}  chains {chain_a}/{chain_b}  T={temperature} K")
@@ -63,43 +63,85 @@ def score(pdb, chain_a, chain_b, temperature, breakdown, as_json):
         return_breakdown=True,
     )
 
+    minus_T_dS_kcal = -(result.dS_total * temperature) / 4184.0
+
     if as_json:
         import json
         data = {
-            "dS_total":       result.dS_total,
-            "dS_trans_rot":   result.dS_trans_rot,
-            "dS_hydrophobic": result.dS_hydrophobic,
-            "dS_sidechain":   result.dS_sidechain,
-            "dS_backbone":    result.dS_backbone,
+            "note":                  "preliminary - work in progress",
+            "dS_total_J_per_molK":   result.dS_total,
+            "dS_trans_rot":          result.dS_trans_rot,
+            "dS_hydrophobic":        result.dS_hydrophobic,
+            "dS_sidechain":          result.dS_sidechain,
+            "dS_backbone":           result.dS_backbone,
+            "minus_T_dS_kcal_mol":   minus_T_dS_kcal,
         }
         click.echo(json.dumps(data, indent=2))
         return
 
+    # ── Delta-S section ──────────────────────────────────────────────────────
     click.echo("")
+    click.echo("  Delta-S  (preliminary - work in progress)")
+    click.echo("  " + "-" * 46)
     if breakdown:
-        click.echo(f"  {'Trans+Rot':20s}  {result.dS_trans_rot:+12.2f}  J/(mol·K)")
+        click.echo(f"  {'Trans+Rot':20s}  {result.dS_trans_rot:+12.2f}  J/(mol*K)")
         if result.trans_rot_detail:
             d = result.trans_rot_detail
             click.echo(f"    trans={d.translational:+.2f}  rot={d.rotational:+.2f}")
 
-        click.echo(f"  {'Hydrophobic':20s}  {result.dS_hydrophobic:+12.2f}  J/(mol·K)")
+        click.echo(f"  {'Hydrophobic':20s}  {result.dS_hydrophobic:+12.2f}  J/(mol*K)")
         if result.hydrophobic_detail:
             d = result.hydrophobic_detail
-            click.echo(f"    R_a={d.R_a:.1f} Å  R_b={d.R_b:.1f} Å")
+            click.echo(f"    R_a={d.R_a:.1f} A  R_b={d.R_b:.1f} A")
 
-        click.echo(f"  {'Sidechain':20s}  {result.dS_sidechain:+12.2f}  J/(mol·K)")
+        click.echo(f"  {'Sidechain':20s}  {result.dS_sidechain:+12.2f}  J/(mol*K)")
         if result.sidechain_detail:
             click.echo(f"    n_interface={result.sidechain_detail.n_interface_residues}")
 
-        click.echo(f"  {'Backbone (NMA)':20s}  {result.dS_backbone:+12.2f}  J/(mol·K)")
+        click.echo(f"  {'Backbone (NMA)':20s}  {result.dS_backbone:+12.2f}  J/(mol*K)")
         if result.backbone_detail:
             click.echo(f"    n_modes={result.backbone_detail.n_modes_matched}")
 
-        click.echo(f"  {'─'*20}  {'─'*12}")
+        click.echo("  " + "-" * 46)
 
-    click.echo(f"  {'TOTAL ΔS':20s}  {result.dS_total:+12.2f}  J/(mol·K)")
-    minus_T_dS_kcal = -(result.dS_total * temperature) / 4184.0
-    click.echo(f"  {'-T·ΔS':20s}  {minus_T_dS_kcal:+12.4f}  kcal/mol")
+    click.echo(f"  {'TOTAL dS':20s}  {result.dS_total:+12.2f}  J/(mol*K)")
+    click.echo(f"  {'-T*dS':20s}  {minus_T_dS_kcal:+12.4f}  kcal/mol")
+
+    # ── Delta-H section ──────────────────────────────────────────────────────
+    dH_kcal = None
+    try:
+        import sys, importlib.util, pathlib as _pl
+        # pdb_utils_inter and pdb_utils_enthalpy use bare imports written for
+        # standalone scripts — inject their directories onto sys.path so they
+        # resolve correctly when imported through the package.
+        _pkg_dir = _pl.Path(importlib.util.find_spec("bindscore").origin).parent
+        for _d in [str(_pkg_dir / "parsing"), str(_pkg_dir / "scoring")]:
+            if _d not in sys.path:
+                sys.path.insert(0, _d)
+
+        from bindscore.pdb_file_treatment.pdb_utils_fetch import fetch_pdb_data
+        from bindscore.parsing.pdb_utils_protein import Protein_Structure
+        from bindscore.parsing.pdb_utils_inter import Interaction
+        from bindscore.scoring.pdb_utils_enthalpy import binding_enthalpy
+
+        pdb_data    = fetch_pdb_data(str(pdb_path))
+        protein     = Protein_Structure(pdb_data)
+        inter       = Interaction(protein, chain_a, chain_b, threshold=5.0)
+        breakdown_h = binding_enthalpy(inter)
+        dH_kcal     = breakdown_h.get("TOTAL", 0.0)
+
+        if breakdown:
+            for k, v in breakdown_h.items():
+                if k == "TOTAL":
+                    continue
+                click.echo(f"  {k:20s}  {v:+12.4f}  kJ/mol")
+            click.echo("  " + "-" * 46)
+
+        click.echo(f"  {'TOTAL dH':20s}  {dH_kcal:+12.4f} kJ/mol")
+    except Exception as exc:
+        click.echo(f"  dH not available: {exc}")
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -123,4 +165,4 @@ def fetch(pdb_id, out):
     save_dir = pathlib.Path(out)
     save_dir.mkdir(parents=True, exist_ok=True)
     path = fetch_pdb_file(pdb_id, save_dir=save_dir)
-    click.echo(f"Saved → {path}")
+    click.echo(f"Saved -> {path}")

@@ -76,11 +76,11 @@ def compute_total_entropy(
         Temperature in Kelvin (default 300).
     return_breakdown : bool
         If False (default), return the scalar total ΔS in J/(mol·K).
-        If True, return a Binding_Entropy_Summary with each component exposed.
+        If True, return a Binding_Entropy_Summary ovject with each component exposed.
 
     Returns
     -------
-    float (default) or Binding_Entropy_Summary — values in J/(mol·K)
+    float (default) or Binding_Entropy_Summary - either have values in J/(mol·K)
     """
     # Each module is independent and can fail without bringing the others
     # down; we use try/except so a single module's failure doesn't kill
