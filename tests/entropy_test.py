@@ -20,8 +20,8 @@ DEBUG_BACKBONE_ENTROPY:bool    = True
 T_KELVIN:float = 300.0
 
 "Indicate the PDB file name if you want to test on another one"
-# test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "6PYH.pdb"
-test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "1BRS.pdb"
+test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "6PYH.pdb"
+# test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "1BRS.pdb"
 # test_pdb_path:path.Path = path.Path(__file__).parent / "test_pdb_files" / "1FQ9.pdb"
 
 "Making a ProteinStructure object for your pdb"
@@ -49,7 +49,7 @@ def debug_entropy(result: Binding_Entropy_Summary, protein_id: str) -> None:
         print(f'[BACKBONE]     {protein_id}: {result.dS_backbone:.4f} J/(mol·K)', end='')
         if result.backbone_detail:
             d = result.backbone_detail
-            print(f'  (complex={d.S_complex:.4f}, A={d.S_chain_a:.4f}, B={d.S_chain_b:.4f})', end='')
+            print(f'  (n_modes_matched)={d.n_modes_matched}', end='')
         print()
 
 
@@ -58,5 +58,5 @@ CHECKING THE OVERALL ENTROPY RESULTS
 ========
 """
 
-total_entropy_result = compute_total_entropy(test_pdb_path, "A", "B", T=T_KELVIN, return_breakdown=True)
+total_entropy_result = compute_total_entropy(test_pdb_path, "A", "D", T=T_KELVIN, return_breakdown=True)
 debug_entropy(total_entropy_result, myprotein.get_ID())

@@ -116,7 +116,7 @@ def compute_total_entropy(
     bb_result: Optional[BackboneResult] = None
     try:
         bb_result = backbone.compute(pdb_path, chain_a, chain_b, T=T)
-        dS_bb = bb_result.deltaS
+        dS_bb = bb_result.dS_backbone
     except Exception as exc:
         warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
         dS_bb = 0.0
