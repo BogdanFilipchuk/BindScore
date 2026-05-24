@@ -508,7 +508,7 @@ class Protein_Structure:
         """
         Returns the ID of the PDB.
         """
-        data = self.pdb_data
+        data:list = self.pdb_data.splitlines()
         pdb_id = data[0][62:66].strip()
         return pdb_id
 

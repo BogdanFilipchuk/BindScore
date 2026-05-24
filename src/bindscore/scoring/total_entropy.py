@@ -69,6 +69,7 @@ def compute_total_entropy(
     chain_b: str,
     T: float = 300.0,
     return_breakdown: bool = False,
+    HYDROPHOBIC_SETTING: str = "SASA",
 ) -> float | EntropySummary:
     """
     Compute the total -T*Delta_S of binding (kcal/mol).
@@ -94,30 +95,50 @@ def compute_total_entropy(
     # the whole estimate. Failed modules contribute 0 and emit a warning.
 
     import warnings
+    pdb_path = str(complex_pdb)
 
     try:
-        tr = trans_rot.compute(complex_pdb, chain_a, chain_b, T=T)
+        tr = trans_rot.compute(pdb_path, chain_a, chain_b, T=T)
         minusT_tr = tr.total
     except Exception as exc:
         warnings.warn(f"trans_rot module failed: {exc}; contributing 0.")
         minusT_tr = 0.0
 
-    try:
-        hp = hydrophobic.compute(complex_pdb, chain_a, chain_b)
-        minusT_hp = hp.minusT_deltaS
-    except Exception as exc:
-        warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
-        minusT_hp = 0.0
+    if HYDROPHOBIC_SETTING == "Sun":
+        try:
+            from . import protein_solvent_entropy
+            import bindscore.pdb_file_treatment.protein_radius_estimation as radius_estimation
+            coords_a  = radius_estimation.load_atoms(pdb_path, chain_id=chain_a)
+            centroid_a = radius_estimation.find_centroid(coords_a)
+            R_a       = radius_estimation.estimate_radius(coords_a, centroid_a)[0]
+            coords_b  = radius_estimation.load_atoms(pdb_path, chain_id=chain_b)
+            centroid_b = radius_estimation.find_centroid(coords_b)
+            R_b       = radius_estimation.estimate_radius(coords_b, centroid_b)[0]
+            ps_i_a = protein_solvent_entropy.dS_interfacial(R_a, T)
+            ps_b_a = protein_solvent_entropy.dS_bulk(R_a)
+            ps_i_b = protein_solvent_entropy.dS_interfacial(R_b, T)
+            ps_b_b = protein_solvent_entropy.dS_bulk(R_b)
+            minusT_hp = ps_i_a + ps_b_a + ps_i_b + ps_b_b
+        except Exception as exc:
+            warnings.warn(f"protein solvent entropy module failed: {exc}; contributing 0.")
+            minusT_hp = 0.0
+    else:  # "SASA" or any other value
+        try:
+            hp = hydrophobic.compute(pdb_path, chain_a, chain_b)
+            minusT_hp = hp.minusT_deltaS
+        except Exception as exc:
+            warnings.warn(f"hydrophobic module failed: {exc}; contributing 0.")
+            minusT_hp = 0.0
 
     try:
-        sc = sidechain.compute(complex_pdb, chain_a, chain_b)
+        sc = sidechain.compute(pdb_path, chain_a, chain_b)
         minusT_sc = sc.minusT_deltaS
     except Exception as exc:
         warnings.warn(f"sidechain module failed: {exc}; contributing 0.")
         minusT_sc = 0.0
 
     try:
-        bb = backbone.compute(complex_pdb, chain_a, chain_b, T=T)
+        bb = backbone.compute(pdb_path, chain_a, chain_b, T=T)
         minusT_bb = bb.minusT_deltaS
     except Exception as exc:
         warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
