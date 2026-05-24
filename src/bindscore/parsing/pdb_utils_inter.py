@@ -1,7 +1,7 @@
 import math
 import os
 import pathlib
-from pdb_utils_protein import *
+from pdb_utils_protein import Protein_Structure
 
 
 def get_angle_between_normals(normal1, normal2):
