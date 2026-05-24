@@ -4,10 +4,17 @@ import py3Dmol
 import streamlit.components.v1 as components # if using regular st.html, gives error
 import numpy as np
 import matplotlib.colors as mcolors
-#from import get_chains # to get the interaction dictionary
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from bindscore.scoring.total_entropy import * # to get the entropy breakdown
-
+from bindscore.parsing.pdb_utils_protein import Protein_Structure # to get the chains
+from bindscore.parsing.enthalpy_run import get_dataset_interaction_list # to get the interactions and binding energy differences
 # auxiliary functions and tools
+chain_colors = [
+    '#e6194b', '#3cb44b', '#4363d8', '#f58231',
+    '#911eb4', '#42d4f4', '#f032e6', '#bfef45',
+    '#fabed4', '#469990', '#dcbeff', '#9A6324',
+]
 interaction_color = {                               # Define colors for interaction types
         "hydrogen_bond": "#bb2727",
         "pi_pi_stacking": "#06e7c9",
@@ -17,38 +24,16 @@ interaction_color = {                               # Define colors for interact
         "hydrophobic_contact": "#1d29d4",
         "halogen_bond": "#07d600",
         "dipole-dipole": "#036400",
-        "unclassified": "#999999"}
+        "unclassified": "#999999",
+}
 
+def get_interaction_color(energy, norm):                       
+    cmap = mcolors.LinearSegmentedColormap.from_list("bgr",  # Create a custom colormap for the binding energy differences
+        [(0.0, "#2166ac"), (0.5, "#a1a1a1"), (1.0, "#d6604d")],
+        N=512,
+    )
+    return mcolors.to_hex(cmap(norm(energy)))  # Map the energy to a color using the colormap and normalization
 
-class Atom(dict):
-    def __init__(self, atom_dict):
-        self["type"] = atom_dict["type"]
-        self["atom_seq"] = atom_dict["atom_seq"]
-
-
-    def __str__(self):
-        line = list(" " * 80)
-
-        line[0:6] = self["type"].ljust(6)
-        line[6:11] = self["idx"].ljust(5)
-        line[12:16] = self["name"].ljust(4)
-        line[17:20] = self["resname"].ljust(3)
-        line[22:26] = str(self["resid"]).ljust(4)
-        line[30:38] = str(self["x"]).rjust(8)
-        line[38:46] = str(self["y"]).rjust(8)
-        line[46:54] = str(self["z"]).rjust(8)
-        line[76:78] = self["sym"].rjust(2)
-        return "".join(line) + "\n"
-    
-def get_interaction_color(interaction_type, mode = ["by_interaction", "by_binding_energy"], dH = None, norm = None):
-    if mode == "by_binding_energy":                         # If coloring by binding energy differences
-        cmap = mcolors.LinearSegmentedColormap.from_list(   # Create a custom colormap for the binding energy differences
-            [(0.0, "#2166ac"), (0.5, "#a1a1a1"), (1.0, "#d6604d")],
-            N=512,
-        )
-        
-    
-    return interaction_color.get(interaction_type, "#999999")  # Default to gray if type is unknown  
 #####TITLE#####
 st.title("BindScore - Binding Energy Predictor")
 
@@ -58,52 +43,79 @@ st.title("BindScore - Binding Energy Predictor")
 #####MAIN AREA#####
 ### protein input and visualization
 protein_input = fetch_pdb(st.text_input("Enter protein PDB RCSB database ID (e.g. 1A2B)", "1A2B"))  # input the protein PDB ID
+protein_input_parsed = Protein_Structure(protein_input)  # turn data into a Protein_Structure object
+chains = protein_input_parsed.chains()  # get the chains for interaction analysis
 # residues_importance = calculate_residue_importance(protein_input)
 
 ### selectbox with the visualization type of the protein
-Protein_drawmode = st.selectbox("Protein visualization mode", ["cartoon", "surface", "stick"])  # the selectbox
+Protein_drawmode = st.selectbox("Protein visualization mode", ["cartoon", "stick"])  # the selectbox
 
 ### visualization button and viewer
 if st.button("Visualize"):
     st.spinner(text="Loading...", width="content")
-    viewer = py3Dmol.view(width=600, height=600)        # Create viewer
+    
+    viewer = py3Dmol.view(width=750, height=750)        # Create viewer
     viewer.addModel(protein_input, "pdb")               # PDB format
-    if Protein_drawmode == "surface":                   # Surface drawing requires a separate call
-        viewer.addSurface(py3Dmol.VDW, {"opacity": 1})
-    elif Protein_drawmode == "cartoon":                   # Apply selected style
-        viewer.setStyle({'cartoon': {'color': 'spectrum'}}) # Style options
-    else:                                               # Default to stick style
-        viewer.setStyle({'stick': {}})
+    
+    chains_with_colors = {chain: color for chain, color in zip(chains, chain_colors)}  # Map chains to colors
+
+    # if Protein_drawmode == "surface":                 # Surface drawing requires a separate call, removed for simplicity 
+    #     viewer.addSurface(py3Dmol.VDW, {"opacity": 1})
+    
+    for chain in chains:                                # Apply colors to each chain according to the visualization mode
+        if Protein_drawmode == "cartoon":                                
+            viewer.setStyle({'chain': chain}, {'cartoon': {'color': chains_with_colors[chain]}})
+        else:                                               
+            viewer.setStyle({'chain': chain}, {'stick': {'color': chains_with_colors[chain]}})
+    
+    viewer.zoomTo()                                     # Zoom to fit the molecule
+    
+    html = viewer._make_html()                          # Render in Streamlit
+    components.html(html, width=750, height=750)        # Size of the streamlit component
+    
+    patches = [mpatches.Patch(color=color, label=f'Chain {chain}') for chain, color in chains_with_colors.items()] # Create legend patches for each chain
+    fig, ax = plt.subplots(figsize=(1, 0.2 * len(chains_with_colors)))
+    ax.legend(handles=patches, loc='center', fontsize=12)
+    ax.axis('off')
+    st.pyplot(fig)
+
+### choosing the chains for interaction analysis
+st.write("Select two chains for interaction analysis")  # Instruction for the user
+col1,col2 =st.columns(2)                                # Create two columns for chain selection
+with col1:
+    chain_1 = st.selectbox("Select chain A for interaction analysis", chains)
+with col2:
+    chain_2 = st.selectbox("Select chain B for interaction analysis", chains)
 
 ### interaction calculation and gradient coloring  
-if st.button("Calculate"):                              # button to load the protein viewer
-    st.spinner(text="Calculating interactions...", width="content")      # Show spinner while processing
-    interactions_full = func(protein_input)             # Call the function to calculate interactions and binding energy differences
+if st.button("Analyze the interactions"):               # Button to start the interaction analysis
+    st.spinner(text="Calculating...", width="content")  # Show spinner while processing
+    interactions_full = get_dataset_interaction_list(protein_input, chain_1, chain_2)# Calculate interactions and binding energy differences
+    energy_values = []
+    for interaction in interactions_full:
+        energy_values.append(interaction["binding energy"]) # Collect binding energy values for normalization to make the color gradient
+
     norm = mcolors.TwoSlopeNorm(                        # Normalize the binding energy around zero
-            vmin=min(dH), vcenter=0.0, vmax=max(dH)
-        )
-        
-    viewer = py3Dmol.view(width=600, height=600)        # Create viewer
+            vmin=min(energy_values), vcenter=0.0, vmax=max(energy_values))
+    
+    viewer = py3Dmol.view(width=750, height=750)        # Create viewer
     viewer.addModel(protein_input, "pdb")               # PDB format
-    if Protein_drawmode == "surface":                   # Surface drawing requires a separate call
-        viewer.addSurface(py3Dmol.VDW, {"opacity": 1})
-    elif Protein_drawmode == "cartoon":                   # Apply selected style
-        viewer.setStyle({'cartoon': {'color': 'spectrum'}}) # Style options
-    else:                                               # Default to stick style
-        viewer.setStyle({'stick': {}})                   # Stick style
-    # for residue in residues_importance:                 # Highlight important residues (if calculated)
-    #     color = residues_importance[residue]            # Get importance score for the residue
-    #     if Protein_drawmode == "surface":               # Surface drawing requires a separate call
-    #         viewer.addSurface(py3Dmol.VDW, {"opacity": 1}, color=color)
-    #     elif Protein_drawmode == "cartoon":                   # Apply selected style
-    #         viewer.setStyle({'resi': residue},  {'cartoon': {'color': color}}) # Style options
+
+    for interaction in interactions_full:                          
+        if Protein_drawmode == "cartoon":                                
+            viewer.setStyle({'resi': interaction["atom1"]["residue_seq"]}, {'cartoon': {'color': get_interaction_color(interaction["binding energy"], norm) }})
+            viewer.setStyle({'resi': interaction["atom2"]["residue_seq"]}, {'cartoon': {'color': get_interaction_color(interaction["binding energy"], norm) }})
+        else:                                               
+            viewer.setStyle({'resi': interaction["atom1"]["residue_seq"]}, {'stick': {'color': get_interaction_color(interaction["binding energy"], norm) }})
+            viewer.setStyle({'resi': interaction["atom2"]["residue_seq"]}, {'stick': {'color': get_interaction_color(interaction["binding energy"], norm) }})
+
     viewer.zoomTo()                                     # Zoom to fit the molecule
     html = viewer._make_html()                          # Render in Streamlit
-    components.html(html, width=600, height=600)        # Size of the streamlit component
+    components.html(html, width=750, height=750)        # Size of the streamlit component
 
-### Interactions table 
-# data = imported_interactions
-# st.dataframe(data)  # Display interactions in a table format
+### Interactions table  MAKE A NICE TABLE AND JUST INSERT IT INTO ST.DATAFRAME 
+   
+st.dataframe(data)  # Display interactions in a table format
 
 ### Entropy table
 results = compute_total_entropy(
