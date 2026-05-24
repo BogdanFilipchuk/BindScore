@@ -1,5 +1,5 @@
 """
-BROKEN MODULE.
+MODULE NOT READY.
 
 binding_entropy.backbone
 ========================

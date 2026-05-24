@@ -1,4 +1,6 @@
 """
+MODULE NOT READY
+
 Module for computing the solvatation entropy of the binding complex.
 ────────────────────────────────────────────────────────────────────────────────
 Solvent–solute entropy terms for a protein in water, following:
