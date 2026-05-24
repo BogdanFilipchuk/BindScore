@@ -86,7 +86,7 @@ def interactions(pdb_id, chain_a, chain_b, threshold):
     grouped: dict = {}
     for interaction in my_inter.interactions:
         itype = interaction["type"] or "unclassified"
-        grouped.setdefault(itype, []).append(c)
+        grouped.setdefault(itype, []).append(interaction)
 
     for itype, contacts in sorted(grouped.items()):
         click.echo(f"  {itype}: {len(contacts)}")
