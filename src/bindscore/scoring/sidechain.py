@@ -1,55 +1,42 @@
 """
-sidechain.py
-Module for computing the side-chain conformational entropy loss at the binding interface.
+binding_entropy.sidechain
 =========================
 
-When a sidechain is buried at an interface, it loses access to most of
-the rotamer states it samples freely in solution. The textbook approach
-is to compare the rotamer distribution in the bound vs. free state and
-compute the Shannon entropy difference (see the discussion in this
-package's accompanying documentation).
+Side-chain configurational entropy change on binding.
 
-For a 2-minute budget we use a SIMPLIFIED implementation: a single
-per-residue-type -T*Delta_S value, applied to every interface residue
-that is buried on binding. This is the same approximation used in many
-empirical scoring functions and gives trend-quality estimates suitable
-for ranking.
+Method
+------
+Use the Pickett–Sternberg (1993) empirical scale: a single ΔS value per
+residue type for full burial of its side chain.  For every residue that
+loses solvent-accessible surface area (SASA) on binding, accumulate its
+scale value.  The total ΔS is in J/(mol·K), negative because burial
+removes rotameric freedom.
 
-A more accurate (but ~10x slower) replacement would:
-  1. Read phi/psi for every interface residue
-  2. Query a backbone-dependent rotamer library (Dunbrack & Karplus 1993)
-     for the free-state rotamer distribution at (phi, psi)
-  3. Identify the rotamer state actually occupied in the complex
-  4. Compute H_free - H_bound from the Shannon entropies
+Sign convention
+---------------
+ΔS = S_bound − S_free, in J/(mol·K).
+Burial only removes freedom, so deltaS ≤ 0.
+Negative = entropy lost on binding = unfavourable contribution to ΔG_bind.
 
-We expose the simple scale here; the function `compute_with_rotamer_lib`
-is a placeholder that you can wire to the full Dunbrack library if you
-choose to download and parse it.
+Expected magnitudes
+-------------------
+For typical protein–protein complexes with 20–30 interface residues,
+ΔS_sidechain falls in the range  −200 to −800 J/(mol·K)
+(i.e. −TΔS ≈ +14 to +57 kJ/mol at 300 K, or 3 to 14 kcal/mol).
 
 References
 ----------
 Pickett & Sternberg (1993), J. Mol. Biol. 231:825-839.
-    "Empirical scale of side-chain conformational entropy in protein
-    folding." Source of the per-residue -T*Delta_S values used below.
-    These were derived from rotamer-state enumeration for each amino acid
-    type on a Cartesian grid in the unfolded state.
-
+    Source of the per-residue −TΔS values (Table 1, at T_ref = 298 K).
 Doig & Sternberg (1995), Protein Sci. 4:2247-2251.
-    Updated and reviewed the scale; confirmed the values are appropriate
-    for binding as well as folding contexts (since both involve burial).
-
-Dunbrack & Karplus (1993), Nat. Struct. Biol. 1:334-340.
-    The backbone-dependent rotamer library. Required for the more
-    accurate Shannon-entropy approach (not implemented here).
-
+    Confirmed the scale transfers from folding to binding contexts.
 Halle & Nilsson (2002), Proteins 49:154-166.
-    Specifically validated the use of rotamer-based entropy estimates for
-    *protein-protein* interface entropy. Supports the application here.
+    Validated rotamer-based estimates specifically for PPI interfaces.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Dict, List
+from dataclasses import dataclass
+from typing import Dict
 
 from Bio.PDB import PDBParser
 
@@ -57,51 +44,43 @@ from .entropy_utils import identify_interface_residues
 
 
 # -----------------------------------------------------------------------------
-# Per-residue sidechain entropy scale
+# Pickett–Sternberg per-residue scale
 # -----------------------------------------------------------------------------
+# Original table:  −T·ΔS in kcal/mol at T_ref = 298 K.
+# We convert ONCE at import to ΔS in J/(mol·K) using:
+#       ΔS [J/(mol·K)]  =  −(−T·ΔS) [kcal/mol] × 4184 / T_ref
+# The leading minus sign flips the convention so ΔS is negative for an
+# entropy LOSS. ALA / GLY / PRO have no side-chain rotameric freedom.
 
-# Values are -T*Delta_S (kcal/mol) at 298 K for full burial of a sidechain
-# going from a free, surface-exposed conformation to a single fixed rotamer.
-# Source: Pickett & Sternberg 1993, Table 1.
-#
-# Sign convention: POSITIVE = unfavourable (entropy lost).
-# Residues with no sidechain rotational freedom (ALA, GLY, PRO) get 0.
-#
-# Note: these are 'maximum' entropy losses for COMPLETE burial. If a
-# residue is only partially buried, the real cost is smaller. We do not
-# attempt to scale by burial fraction here - that's deliberately a
-# limitation of the simple model; the full rotamer-library approach
-# handles partial burial naturally.
-_SIDECHAIN_ENTROPY_KCAL: Dict[str, float] = {
-    "ALA": 0.00,
-    "ARG": 2.13,
-    "ASN": 0.81,
-    "ASP": 0.61,
-    "CYS": 0.55,
-    "GLN": 1.29,
-    "GLU": 1.06,
-    "GLY": 0.00,
-    "HIS": 0.99,
-    "ILE": 0.84,
-    "LEU": 0.78,
-    "LYS": 1.56,
-    "MET": 1.04,
-    "PHE": 0.58,
-    "PRO": 0.00,
-    "SER": 0.55,
-    "THR": 0.48,
-    "TRP": 0.55,
-    "TYR": 0.61,
-    "VAL": 0.51,
+_PS_REF_T_K = 298.0
+_KCAL_TO_J  = 4184.0
+
+_MINUS_T_DELTAS_KCAL: Dict[str, float] = {
+    "ALA": 0.00, "ARG": 2.13, "ASN": 0.81, "ASP": 0.61, "CYS": 0.55,
+    "GLN": 1.29, "GLU": 1.06, "GLY": 0.00, "HIS": 0.99, "ILE": 0.84,
+    "LEU": 0.78, "LYS": 1.56, "MET": 1.04, "PHE": 0.58, "PRO": 0.00,
+    "SER": 0.55, "THR": 0.48, "TRP": 0.55, "TYR": 0.61, "VAL": 0.51,
+}
+
+_DELTAS_J_PER_MOL_K: Dict[str, float] = {
+    res: -(v * _KCAL_TO_J) / _PS_REF_T_K
+    for res, v in _MINUS_T_DELTAS_KCAL.items()
 }
 
 
+# -----------------------------------------------------------------------------
+# Result container — simple: one number + one diagnostic count
+# -----------------------------------------------------------------------------
+
 @dataclass
 class SidechainResult:
-    """Result of the sidechain entropy estimate."""
-    per_residue: Dict[str, List[tuple]] = field(default_factory=dict)
-        # chain_id -> [(resnum, resname, deltaS J/(mol·K)), ...]
-    deltaS: float = 0.0  # total, J/(mol·K) — negative = favourable
+    """Result of the side-chain configurational entropy estimate."""
+    deltaS: float = 0.0
+    # ΔS_binding in J/(mol·K). Always ≤ 0.
+    # Negative = entropy lost on binding (unfavourable for ΔG).
+    n_interface_residues: int = 0
+    # Total number of residues at the interface across both chains
+    # (diagnostic, not used in any sum).
 
 
 # -----------------------------------------------------------------------------
@@ -113,61 +92,54 @@ def compute(
     chain_a: str,
     chain_b: str,
     T: float = 300.0,
-    scale: Dict[str, float] = None,
 ) -> SidechainResult:
     """
-    Estimate -T*Delta_S_sidechain from interface residue burial.
+    Estimate the side-chain configurational entropy change on binding.
 
-    Steps
-    -----
-    1. Identify interface residues (those that lose SASA on binding) via
-       the utils.identify_interface_residues helper.
-    2. For each interface residue, look up its per-residue entropy cost
-       in the Pickett-Sternberg scale.
-    3. Sum the contributions across both chains.
+    Parameters
+    ----------
+    complex_pdb : str
+        Path to PDB containing both chains in the bound pose.
+    chain_a, chain_b : str
+        Single-character chain IDs.
+    T : float
+        Temperature in K. Accepted for API consistency; not used in the
+        formula because ΔS itself (a configurational entropy) is taken
+        as T-independent over the relevant range.
 
-    The result is always >= 0 (entropy is lost on burial; never gained).
-
-    Limitations
-    -----------
-    - Single value per residue type: ignores backbone-context dependence.
-    - All-or-nothing burial: residue contributes its full scale value if
-      it loses any SASA above threshold, regardless of how much.
-    - No coupling between adjacent interface residues (each treated
-      independently).
+    Returns
+    -------
+    SidechainResult
+        ``deltaS`` is the total side-chain ΔS_binding in J/(mol·K).
+        Always ≤ 0 (burial only removes rotameric freedom).
     """
-    if scale is None:
-        scale = _SIDECHAIN_ENTROPY_KCAL
-
-    # Step 1: which residues are at the interface?
+    # Step 1: identify which residues lose SASA on binding.
     interface = identify_interface_residues(complex_pdb, chain_a, chain_b)
 
-    # Step 2: look up each one's residue name from the structure
+    # Step 2: build a {(chain_id, resnum) -> resname} map so we can look
+    # up each interface residue's per-residue ΔS value.
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("s", complex_pdb)
-    resname_map: Dict[tuple, str] = {}   # (chain_id, resnum) -> resname
+    resname_map: Dict[tuple, str] = {}
     for model in structure:
         for chain in model:
             if chain.id not in (chain_a, chain_b):
                 continue
             for res in chain:
-                if res.id[0] != " ":
+                if res.id[0] != " ":   # skip HETATM / waters
                     continue
                 resname_map[(chain.id, res.id[1])] = res.get_resname()
-        break  # only first model
+        break   # first model only
 
-    # Step 3: sum the entropy costs and collect per-residue breakdown
-    result = SidechainResult()
+    # Step 3: sum per-residue contributions.
     total = 0.0
+    n_residues = 0
     for chain_id, resnums in interface.items():
-        result.per_residue[chain_id] = []
         for resnum in resnums:
             resname = resname_map.get((chain_id, resnum))
             if resname is None:
-                continue  # interface residue we couldn't map back (rare)
-            cost = scale.get(resname, 0.0)
-            result.per_residue[chain_id].append((resnum, resname, cost))
-            total += cost
+                continue   # interface residue we couldn't map back (rare)
+            total += _DELTAS_J_PER_MOL_K.get(resname, 0.0)
+            n_residues += 1
 
-    result.deltaS = -(total * 4184.0) / T
-    return result
+    return SidechainResult(deltaS=total, n_interface_residues=n_residues)
