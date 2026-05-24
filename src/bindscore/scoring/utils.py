@@ -6,7 +6,6 @@ Function with utilities for other entropy modules
 Shared helpers used by the other entropy modules:
   - Parsing a complex PDB into per-chain temporary files
   - Computing phi/psi backbone dihedrals
-  - Identifying interface residues by SASA burial
 
 We use Biopython for structural parsing because it is the de-facto standard
 in the Python structural-biology ecosystem and its `Bio.PDB` module is
@@ -42,11 +41,7 @@ class _ChainSelector(Select):
         return 1 if chain.id == self.chain_id else 0
 
 
-def split_chains_to_tempfiles(
-    complex_pdb: str,
-    chain_a: str,
-    chain_b: str,
-) -> Tuple[str, str]:
+def split_chains_to_tempfiles(complex_pdb: str, chain_a: str, chain_b: str) -> Tuple[str, str]:
     """
     Write the two chains of a complex to separate PDB files in /tmp.
 
