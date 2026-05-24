@@ -37,7 +37,7 @@ from .backbone               import BackboneResult
 
 ### MAIN DATACLASS
 """
-Binding_Entropy_Summary will be returned by the module for final results. 
+Binding_Entropy_Summary will be returned by the module for final results.
 It contains all 4 contributions as proprietary objects with their own reuslts structure (see other modules),
 as well as the 5 float variables taken from those objects giving the entropy dS results that were found.
 """
@@ -54,6 +54,7 @@ class Binding_Entropy_Summary:
     hydrophobic_detail: Optional[HydrophobicResult] = field(default=None, repr=False)
     sidechain_detail:   Optional[SidechainResult]   = field(default=None, repr=False)
     backbone_detail:    Optional[BackboneResult]    = field(default=None, repr=False)
+    failed_modules:     list                        = field(default_factory=list, repr=False)
 
 ### MAIN FUNCTION
 def compute_total_entropy(
@@ -76,49 +77,49 @@ def compute_total_entropy(
         Temperature in Kelvin (default 300).
     return_breakdown : bool
         If False (default), return the scalar total ΔS in J/(mol·K).
-        If True, return a Binding_Entropy_Summary with each component exposed.
+        If True, return a Binding_Entropy_Summary ovject with each component exposed.
 
     Returns
     -------
-    float (default) or Binding_Entropy_Summary — values in J/(mol·K)
+    float (default) or Binding_Entropy_Summary - either have values in J/(mol·K)
     """
     # Each module is independent and can fail without bringing the others
     # down; we use try/except so a single module's failure doesn't kill
     # the whole estimate. Failed modules contribute 0 and emit a warning.
 
-    import warnings
     pdb_path = str(complex_pdb)
+    failures: list[str] = []
 
     tr_result: Optional[TransRotResult] = None
     try:
         tr_result = trans_rot.compute(pdb_path, chain_a, chain_b, T=T)
         dS_tr = tr_result.total
-    except Exception as exc:
-        warnings.warn(f"trans_rot module failed: {exc}; contributing 0.")
+    except (Exception, SystemExit) as exc:
+        failures.append(f"trans_rot: {exc}")
         dS_tr = 0.0
 
     hp_result: Optional[HydrophobicResult] = None
     try:
         hp_result = protein_solvent_entropy.compute(pdb_path, chain_a, chain_b, T=T)
         dS_hp = hp_result.deltaS
-    except Exception as exc:
-        warnings.warn(f"hydrophobic (Sun) module failed: {exc}; contributing 0.")
+    except (Exception, SystemExit) as exc:
+        failures.append(f"hydrophobic: {exc}")
         dS_hp = 0.0
 
     sc_result: Optional[SidechainResult] = None
     try:
         sc_result = sidechain.compute(pdb_path, chain_a, chain_b, T=T)
         dS_sc = sc_result.deltaS
-    except Exception as exc:
-        warnings.warn(f"sidechain module failed: {exc}; contributing 0.")
+    except (Exception, SystemExit) as exc:
+        failures.append(f"sidechain: {exc}")
         dS_sc = 0.0
 
     bb_result: Optional[BackboneResult] = None
     try:
         bb_result = backbone.compute(pdb_path, chain_a, chain_b, T=T)
-        dS_bb = bb_result.deltaS
-    except Exception as exc:
-        warnings.warn(f"backbone (NMA) module failed: {exc}; contributing 0.")
+        dS_bb = bb_result.dS_backbone
+    except (Exception, SystemExit) as exc:
+        failures.append(f"backbone: {exc}")
         dS_bb = 0.0
 
     dS_total = dS_tr + dS_hp + dS_sc + dS_bb
@@ -134,5 +135,6 @@ def compute_total_entropy(
             hydrophobic_detail=hp_result,
             sidechain_detail=sc_result,
             backbone_detail=bb_result,
+            failed_modules=failures,
         )
     return dS_total
