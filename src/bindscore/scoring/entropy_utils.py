@@ -145,3 +145,55 @@ def get_phi_psi_for_chain(chain) -> List[Tuple[int, str, float, float]]:
     return out
 
 
+# -----------------------------------------------------------------------------
+# Interface residue identification by SASA burial
+# -----------------------------------------------------------------------------
+
+def identify_interface_residues(
+    complex_pdb: str,
+    chain_a: str,
+    chain_b: str,
+    burial_threshold: float = 1.0,
+) -> Dict[str, List[int]]:
+    """
+    Identify residues at the binding interface by SASA burial.
+
+    A residue is at the interface if it loses more than `burial_threshold`
+    Å² of solvent-accessible surface area going from the free chain to the
+    complex (Hubbard & Thornton, NACCESS manual 1993).
+
+    Returns
+    -------
+    {"A": [resseq, ...], "B": [resseq, ...]}
+    """
+    import freesasa
+
+    s_complex = freesasa.Structure(complex_pdb)
+    r_complex = freesasa.calc(s_complex)
+    per_res_complex = r_complex.residueAreas()
+
+    path_a, path_b = split_chains_to_tempfiles(complex_pdb, chain_a, chain_b)
+    try:
+        per_res_a = freesasa.calc(freesasa.Structure(path_a)).residueAreas()
+        per_res_b = freesasa.calc(freesasa.Structure(path_b)).residueAreas()
+    finally:
+        os.unlink(path_a)
+        os.unlink(path_b)
+
+    interface: Dict[str, List[int]] = {chain_a: [], chain_b: []}
+
+    for chain_id, free_areas in [(chain_a, per_res_a), (chain_b, per_res_b)]:
+        if chain_id not in per_res_complex or chain_id not in free_areas:
+            continue
+        complex_areas = per_res_complex[chain_id]
+        for resnum_str, free_area in free_areas[chain_id].items():
+            if resnum_str not in complex_areas:
+                continue
+            delta_sasa = free_area.total - complex_areas[resnum_str].total
+            if delta_sasa > burial_threshold:
+                try:
+                    interface[chain_id].append(int(resnum_str.strip()))
+                except ValueError:
+                    continue
+
+    return interface
