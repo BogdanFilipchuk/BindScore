@@ -22,7 +22,11 @@ dependencies = [
     "openmm",
     "prody>=2.4",
     "scipy>=1.10",
+    "click>=8.0",
 ]
+
+[project.scripts]
+bindscore = "bindscore.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
