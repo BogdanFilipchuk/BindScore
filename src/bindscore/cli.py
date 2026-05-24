@@ -196,7 +196,29 @@ def score(pdb, chain_a, chain_b, temperature, breakdown, as_json, show_failed):
 
 
 # ---------------------------------------------------------------------------
-# `bindscore fetch` — download a PDB file
+# `bindscore web` - launch the Streamlit UI !
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--port", "-p", default=8501, show_default=True,   #HONESTLY have no idea, chat recommended to add it, to figure out later
+              help="Port to serve the app on.")
+def app(port):
+    """Launch the BindScore Streamlit web interface."""
+    import subprocess, importlib.util
+    from pathlib import Path
+
+    pkg_directory = Path(importlib.util.find_spec("bindscore").origin).parent
+    app_path = pkg_directory / "web" / "app.py"
+
+    if not app_path.exists():
+        raise click.ClickException(f"Web app not found at {app_path}")
+
+    click.echo(f"Starting BindScore web UI on port {port}...")
+    subprocess.run(["streamlit", "run", str(app_path), "--server.port", str(port)])
+
+
+# ---------------------------------------------------------------------------
+# `bindscore fetch` - download a PDB file
 # ---------------------------------------------------------------------------
 
 @cli.command()
