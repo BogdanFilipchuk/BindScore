@@ -199,7 +199,8 @@ src/bindscore/
 
 ## AI Policy
 
-During the creation of this project, AI tools (Claude, ChatGPT, etc.) were used respecting the course guidelines. The final version is conceived by the authors, with comprehensive research and understanding behind key functionalities. AI tools were used for assistance in research and code conceptualisation.
+During the creation of this project, AI tools (Claude, ChatGPT, etc.) were used respecting the course guidelines. The final version functioning version of the package * is conceived by the authors, with comprehensive research and understanding behind key functionalities. AI tools were used for assistance in research and code conceptualisation.
+*By 25/05/2026, the Entropy submodules that are tagged MODULE NOT READY are just sketches. They are to be implemented properly in the future with compliance to the AI policy stated before.
 
 ---
 

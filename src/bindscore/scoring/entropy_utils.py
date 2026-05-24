@@ -1,4 +1,6 @@
 """
+MODULE NOT READY
+
 entropy_utils.py
 Function with utilities for other entropy modules
 ========
