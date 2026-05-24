@@ -89,10 +89,11 @@ def interactions(pdb_id, chain_a, chain_b, threshold):
         grouped.setdefault(itype, []).append(interaction)
 
     for itype, contacts in sorted(grouped.items()):
-        click.echo(f"  {itype}: {len(contacts)}")
-        for i, c in enumerate(contacts, 1):
-            a1, a2 = c["atom1"], c["atom2"]
-            click.echo(f"    [{i}] {a1['residue_name']}{a1['residue_seq']}:{a1['atom_name']}"
+        if( itype != "unclassified" ):
+            click.echo(f"  {itype}: {len(contacts)}")
+            for i, c in enumerate(contacts, 1):
+                a1, a2 = c["atom1"], c["atom2"]
+                click.echo(f"    [{i}] {a1['residue_name']}{a1['residue_seq']}:{a1['atom_name']}"
                        f" <-> {a2['residue_name']}{a2['residue_seq']}:{a2['atom_name']}"
                        f"  ({c['distance']:.2f} A)")
 
