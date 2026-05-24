@@ -1,6 +1,7 @@
 from bindscore.parsing.pdb_utils_inter import *
 from bindscore.scoring.pdb_utils_enthalpy import *
 from bindscore.parsing.pdb_utils_protein import Protein_Structure
+from bindscore.pdb_file_treatment.pdb_utils_fetch import fetch_pdb_data
 
 def get_dataset_interaction_list(pdb_id, chain_a, chain_b, threshold=5.0):
     """
@@ -38,18 +39,15 @@ def get_dataset_interaction_list(pdb_id, chain_a, chain_b, threshold=5.0):
     return all_extracted_interactions
 
 
-# ── Execution ─────────────────────────────────────────────────────────────────
-# Call the function directly with your configuration dataset
+if __name__ == "__main__":
+    protein = '6PYH'
+    chain1 = 'A'
+    chain2 = 'B'
+    THRESHOLD = 5.0
 
-protein = '6PYH'
-chain1 = 'A'
-chain2 = 'B'
-THRESHOLD = 5.0
+    dataset_values = get_dataset_interaction_list(protein, chain1, chain2, THRESHOLD)
 
-dataset_values = get_dataset_interaction_list(protein, chain1, chain2, THRESHOLD)
-
-# Example: Inspecting the first extracted dictionary entry from the master list
-if dataset_values:
-    print(f"Successfully extracted {len(dataset_values)} total interaction pairs.")
-    print("Sample dictionary format:")
-    print(dataset_values[0])
+    if dataset_values:
+        print(f"Successfully extracted {len(dataset_values)} total interaction pairs.")
+        print("Sample dictionary format:")
+        print(dataset_values[0])
