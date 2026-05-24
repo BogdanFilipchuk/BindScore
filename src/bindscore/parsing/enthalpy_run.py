@@ -1,7 +1,6 @@
-from pdb_utils_inter import *
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent / 'scoring'))
-from pdb_utils_enthalpy import *
-from pdb_utils_protein import Protein_Structure
+from bindscore.parsing.pdb_utils_inter import *
+from bindscore.scoring.pdb_utils_enthalpy import *
+from bindscore.parsing.pdb_utils_protein import Protein_Structure
 
 def get_dataset_interaction_list(pdb_id, chain_a, chain_b, threshold=5.0):
     """
