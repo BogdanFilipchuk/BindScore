@@ -101,8 +101,8 @@ _SIDECHAIN_ENTROPY_KCAL: Dict[str, float] = {
 class SidechainResult:
     """Result of the sidechain entropy estimate."""
     per_residue: Dict[str, List[tuple]] = field(default_factory=dict)
-        # chain_id -> [(resnum, resname, -T*dS), ...]
-    minusT_deltaS: float = 0.0  # total, kcal/mol (positive = unfavourable)
+        # chain_id -> [(resnum, resname, deltaS J/(mol·K)), ...]
+    deltaS: float = 0.0  # total, J/(mol·K) — negative = favourable
 
 
 # -----------------------------------------------------------------------------
@@ -113,6 +113,7 @@ def compute(
     complex_pdb: str,
     chain_a: str,
     chain_b: str,
+    T: float = 300.0,
     scale: Dict[str, float] = None,
 ) -> SidechainResult:
     """
@@ -169,5 +170,5 @@ def compute(
             result.per_residue[chain_id].append((resnum, resname, cost))
             total += cost
 
-    result.minusT_deltaS = total
+    result.deltaS = -(total * 4184.0) / T
     return result

@@ -1,11 +1,11 @@
 """
-binding_entropy.utils
-=====================
+utils.py
+Function with utilities for other entropy modules
+========
 
 Shared helpers used by the other entropy modules:
   - Parsing a complex PDB into per-chain temporary files
   - Computing phi/psi backbone dihedrals
-  - Identifying interface residues by SASA burial
 
 We use Biopython for structural parsing because it is the de-facto standard
 in the Python structural-biology ecosystem and its `Bio.PDB` module is
@@ -24,8 +24,7 @@ import tempfile
 from typing import List, Tuple, Dict
 import numpy as np
 
-# Biopython is a stable dependency; the Bio.PDB submodule has been the
-# standard for PDB I/O in Python for >15 years.
+# Biopython 
 from Bio.PDB import PDBParser, PDBIO, Select
 
 
@@ -42,11 +41,7 @@ class _ChainSelector(Select):
         return 1 if chain.id == self.chain_id else 0
 
 
-def split_chains_to_tempfiles(
-    complex_pdb: str,
-    chain_a: str,
-    chain_b: str,
-) -> Tuple[str, str]:
+def split_chains_to_tempfiles(complex_pdb: str, chain_a: str, chain_b: str) -> Tuple[str, str]:
     """
     Write the two chains of a complex to separate PDB files in /tmp.
 
@@ -150,76 +145,3 @@ def get_phi_psi_for_chain(chain) -> List[Tuple[int, str, float, float]]:
     return out
 
 
-# -----------------------------------------------------------------------------
-# Interface residue identification by SASA burial
-# -----------------------------------------------------------------------------
-
-def identify_interface_residues(
-    complex_pdb: str,
-    chain_a: str,
-    chain_b: str,
-    burial_threshold: float = 1.0,
-) -> Dict[str, List[int]]:
-    """
-    Identify residues at the binding interface.
-
-    Standard definition (Hubbard & Thornton, NACCESS manual 1993):
-    a residue is at the interface if it loses more than `burial_threshold`
-    square Angstroms of solvent-accessible surface area on going from the
-    free chain to the complex.
-
-    Returns
-    -------
-    {"A": [resseq, resseq, ...], "B": [resseq, resseq, ...]}
-
-    Implementation note: we call freesasa three times (complex, chain A
-    alone, chain B alone). This is the bottleneck of interface detection
-    but is still very fast (sub-second for typical PPI sizes).
-    """
-    # freesasa is a small, fast C library with python bindings; see
-    # Mitternacht (2016) F1000Research 5:189 for the algorithm details.
-    import freesasa
-
-    # Per-residue SASA in the complex.
-    # API note: freesasa exposes `calc(structure)` as a module-level
-    # function (not a Calc class). It returns a Result object whose
-    # residueAreas() method gives a nested dict {chain -> resnum -> ResidueArea}.
-    s_complex = freesasa.Structure(complex_pdb)
-    r_complex = freesasa.calc(s_complex)
-    per_res_complex = r_complex.residueAreas()
-
-    # Per-residue SASA of each chain in isolation
-    path_a, path_b = split_chains_to_tempfiles(complex_pdb, chain_a, chain_b)
-    try:
-        per_res_a = freesasa.calc(freesasa.Structure(path_a)).residueAreas()
-        per_res_b = freesasa.calc(freesasa.Structure(path_b)).residueAreas()
-    finally:
-        # Clean up the chain tempfiles; we just needed the SASA numbers
-        os.unlink(path_a)
-        os.unlink(path_b)
-
-    interface: Dict[str, List[int]] = {chain_a: [], chain_b: []}
-
-    # Compare residue-by-residue: any residue whose total SASA dropped on
-    # complex formation is buried at the interface.
-    for chain_id, free_areas in [(chain_a, per_res_a), (chain_b, per_res_b)]:
-        if chain_id not in per_res_complex:
-            continue
-        if chain_id not in free_areas:
-            continue
-        complex_areas = per_res_complex[chain_id]
-
-        for resnum_str, free_area in free_areas[chain_id].items():
-            if resnum_str not in complex_areas:
-                continue
-            delta_sasa = free_area.total - complex_areas[resnum_str].total
-            if delta_sasa > burial_threshold:
-                # residueAreas keys are strings like "42" or "42A"; we keep
-                # the integer part for downstream lookups
-                try:
-                    interface[chain_id].append(int(resnum_str.strip()))
-                except ValueError:
-                    # Insertion code present; skip rather than guess
-                    continue
-
-    return interface

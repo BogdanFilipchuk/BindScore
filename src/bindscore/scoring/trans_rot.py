@@ -52,9 +52,9 @@ _STD_VOLUME_A3 = 1660.0
 @dataclass
 class TransRotResult:
     """Container for the trans+rot result with its sub-components exposed."""
-    translational: float   # -T*Delta_S_trans, kcal/mol
-    rotational: float      # -T*Delta_S_rot,   kcal/mol
-    total: float           # sum, kcal/mol
+    translational: float   # Delta_S_trans, J/(mol·K)
+    rotational: float      # Delta_S_rot,   J/(mol·K)
+    total: float           # sum, J/(mol·K)
 
 
 # -----------------------------------------------------------------------------
@@ -229,16 +229,13 @@ def compute(
 
     # Delta_S = S_complex - S_A - S_B
     # Multiplied by -T to express as a free energy contribution
-    dS_trans = S_trans_ab - S_trans_a - S_trans_b
-    dS_rot   = S_rot_ab   - S_rot_a   - S_rot_b
-
-    minusT_dS_trans = -T * dS_trans
-    minusT_dS_rot   = -T * dS_rot
+    dS_trans = (S_trans_ab - S_trans_a - S_trans_b) * 4184.0
+    dS_rot   = (S_rot_ab   - S_rot_a   - S_rot_b)   * 4184.0
 
     return TransRotResult(
-        translational=minusT_dS_trans,
-        rotational=minusT_dS_rot,
-        total=minusT_dS_trans + minusT_dS_rot,
+        translational=dS_trans,
+        rotational=dS_rot,
+        total=dS_trans + dS_rot,
     )
 
 

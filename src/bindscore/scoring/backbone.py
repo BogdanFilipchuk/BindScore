@@ -1,9 +1,7 @@
 """
-binding_entropy.backbone
+Backbone configurational entropy module
 ========================
-
-Backbone (and collective) configurational entropy via Elastic Network
-Model + Normal Mode Analysis.
+Backbone (and collective) configurational entropy via Elastic NetworkModel + Normal Mode Analysis.
 
 The protein backbone fluctuates around its mean structure with a spectrum
 of vibrational modes - from slow, large-amplitude global motions to fast,
@@ -83,11 +81,10 @@ _HBAR_J = 1.054571817e-34  # reduced Planck, J*s
 @dataclass
 class BackboneResult:
     """Container for the NMA-based backbone entropy estimate."""
-    S_complex: float    # vibrational entropy of the complex, kcal/mol/K
-    S_chain_a: float    # vibrational entropy of chain A alone
-    S_chain_b: float    # vibrational entropy of chain B alone
-    delta_S: float      # S_complex - S_A - S_B, kcal/mol/K
-    minusT_deltaS: float  # -T*Delta_S, kcal/mol
+    S_complex: float    # vibrational entropy of the complex, J/(mol·K)
+    S_chain_a: float    # vibrational entropy of chain A alone, J/(mol·K)
+    S_chain_b: float    # vibrational entropy of chain B alone, J/(mol·K)
+    deltaS: float       # S_complex - S_A - S_B, J/(mol·K)
 
 
 # -----------------------------------------------------------------------------
@@ -137,8 +134,7 @@ def _vibrational_entropy_from_eigvals(
     s_per_mode_J = s_per_mode_J[np.isfinite(s_per_mode_J)]
 
     # Sum and convert J/K per molecule -> kcal/mol/K per mole
-    S_total_J_per_mol = s_per_mode_J.sum() * 6.02214076e23
-    return S_total_J_per_mol / 4184.0
+    return float(s_per_mode_J.sum() * 6.02214076e23)
 
 
 def _anm_entropy(pdb_path: str, T: float, cutoff: float, gamma: float) -> float:
@@ -215,13 +211,9 @@ def compute(
     # Bound-state entropy: the complex as one assembly
     S_complex = _anm_entropy(complex_pdb, T, cutoff, gamma)
 
-    delta_S = S_complex - S_a - S_b
-    minusT_dS = -T * delta_S
-
     return BackboneResult(
         S_complex=S_complex,
         S_chain_a=S_a,
         S_chain_b=S_b,
-        delta_S=delta_S,
-        minusT_deltaS=minusT_dS,
+        deltaS=S_complex - S_a - S_b,
     )
