@@ -1,9 +1,7 @@
-import header
-
 import os
 import pathlib
 import sys
-from pdb_utils_fetch import fetch_pdb_data
+from bindscore.pdb_file_treatment.pdb_utils_fetch import fetch_pdb_data
 
 
 class Protein_Structure:
