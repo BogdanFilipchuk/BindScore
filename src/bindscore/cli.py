@@ -204,7 +204,7 @@ def score(pdb, chain_a, chain_b, temperature, breakdown, as_json, show_failed):
 
             
         click.echo("")
-        click.echo("  Delta-H  (preliminary - work in progress)")
+        click.echo("  Delta-H results :")
         click.echo("  " + "-" * 46)
         click.echo(f"  {'TOTAL dH':20s}  {dH_kcal:+12.4f} kJ/mol")
     except Exception as exc:
