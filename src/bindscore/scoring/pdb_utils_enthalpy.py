@@ -1,6 +1,6 @@
-import header
+from . import header
 import math
-from pdb_utils_inter import Interaction
+from bindscore.parsing.pdb_utils_inter import Interaction
 
 # ── Physical constants ────────────────────────────────────────────────────────
 COULOMB_CONSTANT = 1389.4  
