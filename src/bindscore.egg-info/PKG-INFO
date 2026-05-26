@@ -5,7 +5,7 @@ Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: biopython
-Requires-Dist: numpy
+Requires-Dist: numpy<2.0,>=1.26
 Requires-Dist: gemmi
 Requires-Dist: freesasa
 Requires-Dist: streamlit
@@ -13,10 +13,10 @@ Requires-Dist: matplotlib
 Requires-Dist: py3Dmol
 Requires-Dist: mols2grid
 Requires-Dist: ipython_genutils
-Requires-Dist: pymol-open-source
 Requires-Dist: pathlib
 Requires-Dist: openmm
 Requires-Dist: prody>=2.4
 Requires-Dist: scipy>=1.10
 Requires-Dist: click>=8.0
+Requires-Dist: pandas>=2.0
 Dynamic: license-file

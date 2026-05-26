@@ -9,7 +9,7 @@ requires-python = ">=3.10"
 dependencies = [
     "requests",
     "biopython",
-    "numpy",
+    "numpy>=1.26,<2.0",
     "gemmi",
     "freesasa",
     "streamlit",
@@ -17,12 +17,12 @@ dependencies = [
     "py3Dmol",
     "mols2grid",
     "ipython_genutils",
-    "pymol-open-source",
     "pathlib",
     "openmm",
     "prody>=2.4",
     "scipy>=1.10",
     "click>=8.0",
+    "pandas>=2.0",
 ]
 
 [project.scripts]

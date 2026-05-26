@@ -1,6 +1,6 @@
 requests
 biopython
-numpy
+numpy<2.0,>=1.26
 gemmi
 freesasa
 streamlit
@@ -8,9 +8,9 @@ matplotlib
 py3Dmol
 mols2grid
 ipython_genutils
-pymol-open-source
 pathlib
 openmm
 prody>=2.4
 scipy>=1.10
 click>=8.0
+pandas>=2.0
