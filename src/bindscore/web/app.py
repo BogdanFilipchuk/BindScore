@@ -7,8 +7,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd
 # from bindscore.scoring.total_entropy import * # to get the entropy breakdown
+import pandas as pd
+# from bindscore.scoring.total_entropy import * # to get the entropy breakdown
 from bindscore.parsing.pdb_utils_protein import Protein_Structure # to get the chains
 from bindscore.parsing.enthalpy_run import get_dataset_interaction_list # to get the interactions and binding energy differences
+
 
 # auxiliary functions and tools
 chain_colors = [

@@ -1,4 +1,6 @@
 """
+MODULE NOT READY
+
 binding_entropy.trans_rot
 =========================
 
